@@ -21,13 +21,6 @@
         :alt="`${t('empty.teams')}`"
         :text="`${t('empty.teams')}`"
       >
-        <HoppButtonSecondary
-          :label="t('team.create_new')"
-          filled
-          outline
-          :icon="IconPlus"
-          @click="displayModalAdd(true)"
-        />
       </HoppSmartPlaceholder>
       <div v-else-if="!loading" class="flex flex-col">
         <div
@@ -36,15 +29,6 @@
           <div class="flex items-center px-2 font-semibold text-secondaryLight">
             {{ t("team.title") }}
           </div>
-          <HoppButtonSecondary
-            v-tippy="{ theme: 'tooltip' }"
-            :icon="IconPlus"
-            :title="`${t('team.create_new')}`"
-            outline
-            filled
-            class="!p-0.75 rounded ml-8"
-            @click="displayModalAdd(true)"
-          />
         </div>
         <HoppSmartItem
           v-for="(team, index) in myTeams"
