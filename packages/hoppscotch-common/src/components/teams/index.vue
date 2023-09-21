@@ -1,11 +1,6 @@
 <template>
   <div>
     <div class="space-y-4">
-      <HoppButtonSecondary
-        :label="`${t('team.create_new')}`"
-        outline
-        @click="displayModalAdd(true)"
-      />
       <div v-if="loading" class="flex flex-col items-center justify-center">
         <HoppSmartSpinner class="mb-4" />
         <span class="text-secondaryLight">{{ t("state.loading") }}</span>
@@ -16,11 +11,6 @@
         :alt="`${t('empty.teams')}`"
         :text="`${t('empty.teams')}`"
       >
-        <HoppButtonSecondary
-          :label="`${t('team.create_new')}`"
-          filled
-          @click="displayModalAdd(true)"
-        />
       </HoppSmartPlaceholder>
       <div
         v-else-if="!loading"
