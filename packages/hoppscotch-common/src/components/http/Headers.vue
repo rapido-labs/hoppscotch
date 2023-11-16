@@ -185,18 +185,24 @@
             <span>
               <HoppButtonSecondary
                 v-if="header.source === 'auth'"
+                v-tippy="{ theme: 'tooltip' }"
+                :title="t(masking ? 'state.show' : 'state.hide')"
                 :icon="masking ? IconEye : IconEyeOff"
                 @click="toggleMask()"
               />
               <HoppButtonSecondary
                 v-else
+                v-tippy="{ theme: 'tooltip' }"
                 :icon="IconArrowUpRight"
+                :title="t('request.go_to_authorization_tab')"
                 class="cursor-auto text-primary hover:text-primary"
               />
             </span>
             <span>
               <HoppButtonSecondary
+                v-tippy="{ theme: 'tooltip' }"
                 :icon="IconArrowUpRight"
+                :title="t('request.go_to_authorization_tab')"
                 @click="changeTab(header.source)"
               />
             </span>
@@ -250,7 +256,7 @@ import * as E from "fp-ts/Either"
 import * as O from "fp-ts/Option"
 import * as A from "fp-ts/Array"
 import draggable from "vuedraggable-es"
-import { RequestOptionTabs } from "./RequestOptions.vue"
+import { RESTOptionTabs } from "./RequestOptions.vue"
 import { useCodemirror } from "@composables/codemirror"
 import { commonHeaders } from "~/helpers/headers"
 import { useI18n } from "@composables/i18n"
@@ -267,10 +273,13 @@ import { aggregateEnvs$, getAggregateEnvs } from "~/newstore/environments"
 import { useVModel } from "@vueuse/core"
 import { useService } from "dioc/vue"
 import { InspectionService, InspectorResult } from "~/services/inspection"
-import { currentTabID } from "~/helpers/rest/tab"
+import { RESTTabService } from "~/services/tab/rest"
 
 const t = useI18n()
 const toast = useToast()
+
+const tabs = useService(RESTTabService)
+
 const colorMode = useColorMode()
 
 const idTicker = ref(0)
@@ -286,7 +295,7 @@ const deletionToast = ref<{ goAway: (delay: number) => void } | null>(null)
 const props = defineProps<{ modelValue: HoppRESTRequest }>()
 
 const emit = defineEmits<{
-  (e: "change-tab", value: RequestOptionTabs): void
+  (e: "change-tab", value: RESTOptionTabs): void
   (e: "update:modelValue", value: HoppRESTRequest): void
 }>()
 
@@ -509,13 +518,13 @@ const changeTab = (tab: ComputedHeader["source"]) => {
 const inspectionService = useService(InspectionService)
 
 const headerKeyResults = inspectionService.getResultViewFor(
-  currentTabID.value,
+  tabs.currentTabID.value,
   (result) =>
     result.locations.type === "header" && result.locations.position === "key"
 )
 
 const headerValueResults = inspectionService.getResultViewFor(
-  currentTabID.value,
+  tabs.currentTabID.value,
   (result) =>
     result.locations.type === "header" && result.locations.position === "value"
 )
