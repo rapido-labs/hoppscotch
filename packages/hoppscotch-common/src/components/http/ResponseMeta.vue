@@ -11,6 +11,12 @@
         <HoppSmartSpinner class="my-4" />
         <span class="text-secondaryLight">{{ t("state.loading") }}</span>
       </div>
+
+      <component
+        :is="response.component"
+        v-if="response.type === 'extension_error'"
+        class="flex-1"
+      />
       <HoppSmartPlaceholder
         v-if="response.type === 'network_fail'"
         :src="`/images/states/${colorMode.value}/youre_lost.svg`"
@@ -93,10 +99,11 @@ import { useColorMode } from "@composables/theming"
 import { getStatusCodeReasonPhrase } from "~/helpers/utils/statusCodes"
 import { useService } from "dioc/vue"
 import { InspectionService } from "~/services/inspection"
-import { currentTabID } from "~/helpers/rest/tab"
+import { RESTTabService } from "~/services/tab/rest"
 
 const t = useI18n()
 const colorMode = useColorMode()
+const tabs = useService(RESTTabService)
 
 const props = defineProps<{
   response: HoppRESTResponse | null | undefined
@@ -146,7 +153,7 @@ const statusCategory = computed(() => {
 const inspectionService = useService(InspectionService)
 
 const tabResults = inspectionService.getResultViewFor(
-  currentTabID.value,
+  tabs.currentTabID.value,
   (result) => result.locations.type === "response"
 )
 </script>

@@ -18,13 +18,12 @@
       "
     >
       <WorkspaceCurrent :section="t('tab.collections')" />
-
-      <HoppSmartInput
+      <input
         v-model="filterTexts"
-        :placeholder="t('action.search')"
-        input-styles="py-2 pl-4 pr-2 bg-transparent !border-0"
         type="search"
-        :autofocus="false"
+        autocomplete="off"
+        class="flex w-full p-4 py-2 bg-transparent h-8"
+        :placeholder="t('action.search')"
         :disabled="collectionsType.type === 'team-collections'"
       />
     </div>
@@ -220,12 +219,6 @@ import * as E from "fp-ts/Either"
 import { platform } from "~/platform"
 import { createCollectionGists } from "~/helpers/gist"
 import {
-  createNewTab,
-  currentActiveTab,
-  currentTabID,
-  getTabRefWithSaveContext,
-} from "~/helpers/rest/tab"
-import {
   getRequestsByPath,
   resolveSaveContextOnRequestReorder,
 } from "~/helpers/collection/request"
@@ -239,9 +232,11 @@ import { currentReorderingStatus$ } from "~/newstore/reordering"
 import { defineActionHandler } from "~/helpers/actions"
 import { WorkspaceService } from "~/services/workspace.service"
 import { useService } from "dioc/vue"
+import { RESTTabService } from "~/services/tab/rest"
 
 const t = useI18n()
 const toast = useToast()
+const tabs = useService(RESTTabService)
 
 const props = defineProps({
   saveRequest: {
@@ -377,22 +372,26 @@ const updateSelectedTeam = (team: SelectedTeam) => {
 const workspace = workspaceService.currentWorkspace
 
 // Used to switch collection type and team when user switch workspace in the global workspace switcher
-// Check if there is a teamID in the workspace, if yes, switch to team collection and select the team
-// If there is no teamID, switch to my environment
+// Check if there is a teamID in the workspace, if yes, switch to team collections and select the team
+// If there is no teamID, switch to my collections
 watch(
   () => {
     const space = workspace.value
-
-    if (space.type === "personal") return undefined
-    else return space.teamID
+    return space.type === "personal" ? undefined : space.teamID
   },
   (teamID) => {
-    if (!teamID) {
-      switchToMyCollections()
-    } else if (teamID) {
+    if (teamID) {
       const team = myTeams.value?.find((t) => t.id === teamID)
-      if (team) updateSelectedTeam(team)
+      if (team) {
+        updateSelectedTeam(team)
+      }
+      return
     }
+
+    return switchToMyCollections()
+  },
+  {
+    immediate: true,
   }
 )
 
@@ -650,7 +649,7 @@ const addRequest = (payload: {
 
 const onAddRequest = (requestName: string) => {
   const newRequest = {
-    ...cloneDeep(currentActiveTab.value.document.request),
+    ...cloneDeep(tabs.currentActiveTab.value.document.request),
     name: requestName,
   }
 
@@ -659,7 +658,7 @@ const onAddRequest = (requestName: string) => {
     if (!path) return
     const insertionIndex = saveRESTRequestAs(path, newRequest)
 
-    createNewTab({
+    tabs.createNewTab({
       request: newRequest,
       isDirty: false,
       saveContext: {
@@ -708,7 +707,7 @@ const onAddRequest = (requestName: string) => {
         (result) => {
           const { createRequestInCollection } = result
 
-          createNewTab({
+          tabs.createNewTab({
             request: newRequest,
             isDirty: false,
             saveContext: {
@@ -931,7 +930,7 @@ const updateEditingRequest = (newName: string) => {
 
     if (folderPath === null || requestIndex === null) return
 
-    const possibleActiveTab = getTabRefWithSaveContext({
+    const possibleActiveTab = tabs.getTabRefWithSaveContext({
       originLocation: "user-collection",
       requestIndex,
       folderPath,
@@ -975,7 +974,7 @@ const updateEditingRequest = (newName: string) => {
       )
     )()
 
-    const possibleTab = getTabRefWithSaveContext({
+    const possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "team-collection",
       requestID,
     })
@@ -1211,7 +1210,7 @@ const onRemoveRequest = () => {
       emit("select", null)
     }
 
-    const possibleTab = getTabRefWithSaveContext({
+    const possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "user-collection",
       folderPath,
       requestIndex,
@@ -1271,7 +1270,7 @@ const onRemoveRequest = () => {
     )()
 
     // If there is a tab attached to this request, dissociate its state and mark it dirty
-    const possibleTab = getTabRefWithSaveContext({
+    const possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "team-collection",
       requestID,
     })
@@ -1304,14 +1303,14 @@ const selectRequest = (selectedRequest: {
   let possibleTab = null
 
   if (collectionsType.value.type === "team-collections") {
-    possibleTab = getTabRefWithSaveContext({
+    possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "team-collection",
       requestID: requestIndex,
     })
     if (possibleTab) {
-      currentTabID.value = possibleTab.value.id
+      tabs.setActiveTab(possibleTab.value.id)
     } else {
-      createNewTab({
+      tabs.createNewTab({
         request: cloneDeep(request),
         isDirty: false,
         saveContext: {
@@ -1321,16 +1320,16 @@ const selectRequest = (selectedRequest: {
       })
     }
   } else {
-    possibleTab = getTabRefWithSaveContext({
+    possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "user-collection",
       requestIndex: parseInt(requestIndex),
       folderPath: folderPath!,
     })
     if (possibleTab) {
-      currentTabID.value = possibleTab.value.id
+      tabs.setActiveTab(possibleTab.value.id)
     } else {
       // If not, open the request in a new tab
-      createNewTab({
+      tabs.createNewTab({
         request: cloneDeep(request),
         isDirty: false,
         saveContext: {
@@ -1373,7 +1372,7 @@ const dropRequest = (payload: {
       destinationCollectionIndex
     )
 
-    const possibleTab = getTabRefWithSaveContext({
+    const possibleTab = tabs.getTabRefWithSaveContext({
       originLocation: "user-collection",
       folderPath,
       requestIndex: pathToLastIndex(requestIndex),
@@ -1422,7 +1421,7 @@ const dropRequest = (payload: {
             1
           )
 
-          const possibleTab = getTabRefWithSaveContext({
+          const possibleTab = tabs.getTabRefWithSaveContext({
             originLocation: "team-collection",
             requestID: requestIndex,
           })
@@ -1867,28 +1866,25 @@ const getJSONCollection = async () => {
  * @param collectionJSON - JSON string of the collection
  * @param name - Name of the collection set as the file name
  */
-const initializeDownloadCollection = (
+const initializeDownloadCollection = async (
   collectionJSON: string,
   name: string | null
 ) => {
-  const file = new Blob([collectionJSON], { type: "application/json" })
-  const a = document.createElement("a")
-  const url = URL.createObjectURL(file)
-  a.href = url
+  const result = await platform.io.saveFileWithDialog({
+    data: collectionJSON,
+    contentType: "application/json",
+    suggestedFilename: `${name ?? "collection"}.json`,
+    filters: [
+      {
+        name: "Hoppscotch Collection JSON file",
+        extensions: ["json"],
+      },
+    ],
+  })
 
-  if (name) {
-    a.download = `${name}.json`
-  } else {
-    a.download = `${url.split("/").pop()!.split("#")[0].split("?")[0]}.json`
+  if (result.type === "unknown" || result.type === "saved") {
+    toast.success(t("state.download_started").toString())
   }
-
-  document.body.appendChild(a)
-  a.click()
-  toast.success(t("state.download_started").toString())
-  setTimeout(() => {
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }, 1000)
 }
 
 /**
@@ -1917,11 +1913,14 @@ const exportData = async (
           exportLoading.value = false
           return
         },
-        (coll) => {
+        async (coll) => {
           const hoppColl = teamCollToHoppRESTColl(coll)
           const collectionJSONString = JSON.stringify(hoppColl)
 
-          initializeDownloadCollection(collectionJSONString, hoppColl.name)
+          await initializeDownloadCollection(
+            collectionJSONString,
+            hoppColl.name
+          )
           exportLoading.value = false
         }
       )
@@ -1937,6 +1936,12 @@ const exportJSONCollection = async () => {
   })
 
   await getJSONCollection()
+
+  const parsedCollections = JSON.parse(collectionJSON.value)
+
+  if (!parsedCollections.length) {
+    return toast.error(t("error.no_collections_to_export"))
+  }
 
   initializeDownloadCollection(collectionJSON.value, null)
 }
