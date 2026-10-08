@@ -85,6 +85,52 @@ const statusCodes: {
   599: "Network connect timeout error", // (Unknown) This status code is not specified in any RFCs, but is used by Microsoft Corp. HTTP proxies to signal a network connect timeout behind the proxy to a client in front of the proxy.
 }
 
-export function getStatusCodeReasonPhrase(code: number): string {
+export function getStatusCodeReasonPhrase(
+  code: number,
+  statusText?: string
+): string {
+  // Return statusText if non-empty after trimming and add ellipsis if greater than 35 characters
+  const trimmedStatusText = statusText?.trim()
+  if (trimmedStatusText) {
+    return trimmedStatusText.length > 35
+      ? `${trimmedStatusText.substring(0, 35)}...`
+      : trimmedStatusText
+  }
+
   return statusCodes[code] ?? "Unknown"
+}
+
+// return the status code like
+//  code • status
+export const getFullStatusCodePhrase = () => {
+  return Object.keys(statusCodes).map((code) => {
+    return `${code} • ${statusCodes[code]}`
+  })
+}
+
+// return all status codes and their phrases
+// like code • phrase
+export const getStatusCodePhrase = (
+  code: number | undefined | null,
+  statusText: string
+) => {
+  if (!code) return statusText
+  return `${code} • ${getStatusCodeReasonPhrase(code, statusText)}`
+}
+
+// return the status code and status
+// like { code, status }
+export const getStatusAndCode = (status: string) => {
+  const statusAndCode = status.split(" • ")
+  return {
+    code: Number(statusAndCode[0]),
+    status: statusAndCode[1],
+  }
+}
+
+// check if the status code is valid
+export const isValidStatusCode = (status: string) => {
+  const allPhrases = getFullStatusCodePhrase()
+
+  return allPhrases.includes(status)
 }

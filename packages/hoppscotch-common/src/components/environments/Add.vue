@@ -5,9 +5,9 @@
     @close="hideModal"
   >
     <template #body>
-      <div class="flex space-y-4 flex-1 flex-col">
-        <div class="flex items-center space-x-8 ml-2">
-          <label for="name" class="font-semibold min-w-10">{{
+      <div class="flex flex-1 flex-col space-y-4">
+        <div class="ml-2 flex items-center space-x-8">
+          <label for="name" class="min-w-[2.5rem] font-semibold">{{
             t("environment.name")
           }}</label>
           <input
@@ -17,32 +17,32 @@
             class="input"
           />
         </div>
-        <div class="flex items-center space-x-8 ml-2">
-          <label for="value" class="font-semibold min-w-10">{{
+        <div class="ml-2 flex items-center space-x-8">
+          <label for="value" class="min-w-[2.5rem] font-semibold">{{
             t("environment.value")
           }}</label>
-          <input
+          <SmartEnvInput
             v-model="editingValue"
             type="text"
             class="input"
             :placeholder="t('environment.value')"
           />
         </div>
-        <div class="flex items-center space-x-8 ml-2">
-          <label for="scope" class="font-semibold min-w-10">
+        <div class="ml-2 flex items-center space-x-8">
+          <label for="scope" class="min-w-[2.5rem] font-semibold">
             {{ t("environment.scope") }}
           </label>
           <div
-            class="relative flex flex-1 flex-col border border-divider rounded focus-visible:border-dividerDark"
+            class="relative flex flex-1 flex-col rounded border border-divider focus-visible:border-dividerDark"
           >
             <EnvironmentsSelector v-model="scope" :is-scope-selector="true" />
           </div>
         </div>
-        <div v-if="replaceWithVariable" class="flex space-x-2 mt-3">
-          <div class="min-w-18" />
+        <div v-if="replaceWithVariable" class="mt-3 flex space-x-2">
+          <div class="min-w-[4rem]" />
           <HoppSmartCheckbox
             :on="replaceWithVariable"
-            title="t('environment.replace_with_variable'))"
+            :title="t('environment.replace_with_variable')"
             @change="replaceWithVariable = !replaceWithVariable"
           />
           <label for="replaceWithVariable">
@@ -70,26 +70,30 @@
 </template>
 
 <script lang="ts" setup>
-import { Environment } from "@hoppscotch/data"
+import { useService } from "dioc/vue"
+import * as TE from "fp-ts/TaskEither"
+import { pipe } from "fp-ts/function"
 import { ref, watch } from "vue"
 import { useI18n } from "~/composables/i18n"
 import { useToast } from "~/composables/toast"
 import { GQLError } from "~/helpers/backend/GQLClient"
-import { TeamEnvironment } from "~/helpers/teams/TeamEnvironment"
-import {
-  addEnvironmentVariable,
-  addGlobalEnvVariable,
-} from "~/newstore/environments"
-import * as TE from "fp-ts/TaskEither"
-import { pipe } from "fp-ts/function"
 import { updateTeamEnvironment } from "~/helpers/backend/mutations/TeamEnvironment"
-import { RESTTabService } from "~/services/tab/rest"
-import { useService } from "dioc/vue"
+import { getEnvActionErrorMessage } from "~/helpers/error-messages"
+import { stripClientLocalValuesForWire } from "~/helpers/clientLocalVariables"
+import {
+  setGlobalEnvVariables,
+  updateEnvironment,
+} from "~/newstore/environments"
+import { CurrentValueService } from "~/services/current-environment-value.service"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
+import { Scope } from "./Selector.vue"
+import { GlobalEnvironment } from "@hoppscotch/data"
 
 const t = useI18n()
 const toast = useToast()
 
-const tabs = useService(RESTTabService)
+const tabs = useService(WorkspaceTabsService)
+const currentEnvironmentValueService = useService(CurrentValueService)
 
 const props = defineProps<{
   show: boolean
@@ -112,6 +116,7 @@ watch(
     if (!newVal) {
       scope.value = {
         type: "global",
+        variables: [],
       }
       replaceWithVariable.value = false
       editingName.value = ""
@@ -122,22 +127,9 @@ watch(
   }
 )
 
-type Scope =
-  | {
-      type: "global"
-    }
-  | {
-      type: "my-environment"
-      environment: Environment
-      index: number
-    }
-  | {
-      type: "team-environment"
-      environment: TeamEnvironment
-    }
-
 const scope = ref<Scope>({
   type: "global",
+  variables: [],
 })
 
 const replaceWithVariable = ref(false)
@@ -151,37 +143,93 @@ const addEnvironment = async () => {
     return
   }
   if (scope.value.type === "global") {
-    addGlobalEnvVariable({
+    const newVariables = [
+      ...scope.value.variables,
+      {
+        key: editingName.value,
+        initialValue: editingValue.value,
+        currentValue: "",
+        secret: false,
+      },
+    ]
+
+    const newEnv: GlobalEnvironment = {
+      v: 2,
+      variables: newVariables,
+    }
+
+    setGlobalEnvVariables(newEnv)
+    currentEnvironmentValueService.addEnvironmentVariable("Global", {
       key: editingName.value,
-      value: editingValue.value,
+      currentValue: editingValue.value,
+      isSecret: false,
+      varIndex: scope.value.variables.length,
     })
     toast.success(`${t("environment.updated")}`)
   } else if (scope.value.type === "my-environment") {
-    addEnvironmentVariable(scope.value.index, {
-      key: editingName.value,
-      value: editingValue.value,
-    })
+    const newVariables = [
+      ...scope.value.environment.variables,
+      {
+        key: editingName.value,
+        initialValue: editingValue.value,
+        currentValue: "",
+        secret: false,
+      },
+    ]
+
+    const newEnv = {
+      ...scope.value.environment,
+      variables: newVariables,
+    }
+
+    updateEnvironment(scope.value.index, newEnv)
+    currentEnvironmentValueService.addEnvironmentVariable(
+      scope.value.environment.id,
+      {
+        key: editingName.value,
+        currentValue: editingValue.value,
+        isSecret: false,
+        varIndex: scope.value.environment.variables.length,
+      }
+    )
     toast.success(`${t("environment.updated")}`)
   } else {
     const newVariables = [
       ...scope.value.environment.environment.variables,
       {
         key: editingName.value,
-        value: editingValue.value,
+        initialValue: editingValue.value,
+        currentValue: "",
+        secret: false,
       },
     ]
+
     await pipe(
       updateTeamEnvironment(
-        JSON.stringify(newVariables),
+        JSON.stringify(stripClientLocalValuesForWire(newVariables)),
         scope.value.environment.id,
         scope.value.environment.environment.name
       ),
       TE.match(
         (err: GQLError<string>) => {
           console.error(err)
-          toast.error(`${getErrorMessage(err)}`)
+          toast.error(t(getEnvActionErrorMessage(err)))
         },
         () => {
+          if (scope.value.type === "team-environment") {
+            currentEnvironmentValueService.addEnvironmentVariable(
+              scope.value.environment.id,
+              {
+                key: editingName.value,
+                currentValue: editingValue.value,
+                isSecret: false,
+                // The new variable is appended at index `length` of the
+                // pre-append array; `length - 1` collided with the previous
+                // last variable's slot.
+                varIndex: scope.value.environment.environment.variables.length,
+              }
+            )
+          }
           hideModal()
           toast.success(`${t("environment.updated")}`)
         }
@@ -191,29 +239,20 @@ const addEnvironment = async () => {
   if (replaceWithVariable.value) {
     //replace the current tab endpoint with the variable name with << and >>
     const variableName = `<<${editingName.value}>>`
-    //replace the currenttab endpoint containing the value in the text with variablename
-    tabs.currentActiveTab.value.document.request.endpoint =
-      tabs.currentActiveTab.value.document.request.endpoint.replace(
+    const doc = tabs.currentActiveTab.value.document
+    if (doc.type === "request") {
+      doc.request.endpoint = doc.request.endpoint.replace(
         editingValue.value,
         variableName
       )
+    } else if (doc.type === "gql-request") {
+      doc.request.url = doc.request.url.replace(
+        editingValue.value,
+        variableName
+      )
+    }
   }
 
   hideModal()
-}
-
-const getErrorMessage = (err: GQLError<string>) => {
-  if (err.type === "network_error") {
-    return t("error.network_error")
-  } else {
-    switch (err.error) {
-      case "team_environment/not_found":
-        return t("team_environment.not_found")
-      case "Forbidden resource":
-        return t("profile.no_permission")
-      default:
-        return t("error.something_went_wrong")
-    }
-  }
 }
 </script>

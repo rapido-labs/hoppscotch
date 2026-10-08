@@ -14,21 +14,26 @@ import {
   USER_NOT_FOUND,
 } from 'src/errors';
 import * as O from 'fp-ts/Option';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class RTJwtStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(private usersService: UserService) {
+  constructor(
+    private usersService: UserService,
+    private configService: ConfigService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
-          const RTCookie = request.cookies['refresh_token'];
+          const RTCookie = request.cookies?.['refresh_token'];
           if (!RTCookie) {
+            console.error('`refresh_token` not found');
             throw new ForbiddenException(COOKIES_NOT_FOUND);
           }
           return RTCookie;
         },
       ]),
-      secretOrKey: process.env.JWT_SECRET,
+      secretOrKey: configService.get('INFRA.JWT_SECRET'),
     });
   }
 

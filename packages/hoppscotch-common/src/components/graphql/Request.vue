@@ -1,6 +1,6 @@
 <template>
   <div
-    class="sticky top-0 z-10 flex flex-shrink-0 p-4 overflow-x-auto space-x-2 bg-primary"
+    class="sticky top-0 z-10 flex flex-shrink-0 space-x-2 overflow-x-auto bg-primary p-4"
   >
     <div class="inline-flex flex-1 space-x-2">
       <input
@@ -9,8 +9,8 @@
         type="url"
         autocomplete="off"
         spellcheck="false"
-        class="w-full px-4 py-2 border rounded bg-primaryLight border-divider text-secondaryDark"
-        :placeholder="`${t('request.url')}`"
+        class="w-full rounded border border-divider bg-primaryLight px-4 py-2 text-secondaryDark"
+        :placeholder="`${t('graphql.url_placeholder')}`"
         :disabled="connected"
         @keyup.enter="onConnectClick"
       />
@@ -65,18 +65,17 @@
 import { platform } from "~/platform"
 import { useI18n } from "@composables/i18n"
 import { computed, ref, watch } from "vue"
-import { connection } from "~/helpers/graphql/connection"
-import { connect } from "~/helpers/graphql/connection"
-import { disconnect } from "~/helpers/graphql/connection"
-import { InterceptorService } from "~/services/interceptor.service"
+import { connection, connect, disconnect } from "~/helpers/graphql/connection"
+import { KernelInterceptorService } from "~/services/kernel-interceptor.service"
 import { useService } from "dioc/vue"
 import { defineActionHandler } from "~/helpers/actions"
 import { GQLTabService } from "~/services/tab/graphql"
+import { HoppGQLAuth, HoppGQLRequest } from "@hoppscotch/data"
 
 const t = useI18n()
 const tabs = useService(GQLTabService)
 
-const interceptorService = useService(InterceptorService)
+const interceptorService = useService(KernelInterceptorService)
 
 const connectionSwitchModal = ref(false)
 
@@ -98,12 +97,28 @@ const onConnectClick = () => {
 }
 
 const gqlConnect = () => {
-  connect(url.value, tabs.currentActiveTab.value?.document.request.headers)
+  const inheritedHeaders =
+    tabs.currentActiveTab.value.document.inheritedProperties?.headers.map(
+      (header) => {
+        if (header.inheritedHeader) {
+          return header.inheritedHeader
+        }
+        return []
+      }
+    ) as HoppGQLRequest["headers"]
+
+  connect({
+    url: url.value,
+    request: tabs.currentActiveTab.value.document.request,
+    inheritedHeaders,
+    inheritedAuth: tabs.currentActiveTab.value.document.inheritedProperties
+      ?.auth.inheritedAuth as HoppGQLAuth,
+  })
 
   platform.analytics?.logEvent({
     type: "HOPP_REQUEST_RUN",
     platform: "graphql-schema",
-    strategy: interceptorService.currentInterceptorID.value!,
+    strategy: interceptorService.current.value!.id,
   })
 }
 

@@ -9,6 +9,9 @@ import {
   DeleteCollectionDocument,
   DeleteCollectionMutation,
   DeleteCollectionMutationVariables,
+  DuplicateTeamCollectionDocument,
+  DuplicateTeamCollectionMutation,
+  DuplicateTeamCollectionMutationVariables,
   ImportFromJsonDocument,
   ImportFromJsonMutation,
   ImportFromJsonMutationVariables,
@@ -18,10 +21,18 @@ import {
   RenameCollectionDocument,
   RenameCollectionMutation,
   RenameCollectionMutationVariables,
+  SortOptions,
+  SortTeamCollectionsDocument,
+  SortTeamCollectionsMutation,
+  SortTeamCollectionsMutationVariables,
   UpdateCollectionOrderDocument,
   UpdateCollectionOrderMutation,
   UpdateCollectionOrderMutationVariables,
+  UpdateTeamCollectionDocument,
+  UpdateTeamCollectionMutation,
+  UpdateTeamCollectionMutationVariables,
 } from "../graphql"
+import { CollectionDataProps } from "../helpers"
 
 type CreateNewRootCollectionError = "team_coll/short_title"
 
@@ -42,6 +53,7 @@ type UpdateCollectionOrderError =
   | "team/invalid_coll_id"
   | "team/collection_and_next_collection_are_same"
   | "team/team_collections_have_different_parents"
+  | "team_coll/not_same_parent"
 
 export const createNewRootCollection = (title: string, teamID: string) =>
   runMutation<
@@ -122,3 +134,42 @@ export const importJSONToTeam = (collectionJSON: string, teamID: string) =>
       teamID,
     }
   )
+
+export const updateTeamCollection = (
+  collectionID: string,
+  data?: CollectionDataProps,
+  newTitle?: string
+) =>
+  runMutation<
+    UpdateTeamCollectionMutation,
+    UpdateTeamCollectionMutationVariables,
+    ""
+  >(UpdateTeamCollectionDocument, {
+    collectionID,
+    data: JSON.stringify(data),
+    newTitle,
+  })
+
+export const duplicateTeamCollection = (collectionID: string) =>
+  runMutation<
+    DuplicateTeamCollectionMutation,
+    DuplicateTeamCollectionMutationVariables,
+    ""
+  >(DuplicateTeamCollectionDocument, {
+    collectionID,
+  })
+
+export const sortTeamCollections = (
+  teamID: string,
+  parentCollectionID: string | null,
+  sortOption: SortOptions
+) =>
+  runMutation<
+    SortTeamCollectionsMutation,
+    SortTeamCollectionsMutationVariables,
+    ""
+  >(SortTeamCollectionsDocument, {
+    teamID,
+    parentCollectionID,
+    sortOption,
+  })

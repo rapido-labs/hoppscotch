@@ -3,9 +3,6 @@ import * as TE from "fp-ts/TaskEither"
 import { runMutation } from "../GQLClient"
 import { TeamName } from "../types/TeamName"
 import {
-  CreateTeamDocument,
-  CreateTeamMutation,
-  CreateTeamMutationVariables,
   DeleteTeamDocument,
   DeleteTeamMutation,
   DeleteTeamMutationVariables,
@@ -18,11 +15,12 @@ import {
   RenameTeamDocument,
   RenameTeamMutation,
   RenameTeamMutationVariables,
-  TeamMemberRole,
-  UpdateTeamMemberRoleDocument,
-  UpdateTeamMemberRoleMutation,
-  UpdateTeamMemberRoleMutationVariables,
+  TeamAccessRole,
+  UpdateTeamAccessRoleDocument,
+  UpdateTeamAccessRoleMutation,
+  UpdateTeamAccessRoleMutationVariables,
 } from "../graphql"
+import { platform } from "~/platform"
 
 type DeleteTeamErrors =
   | "team/not_required_role"
@@ -31,38 +29,25 @@ type DeleteTeamErrors =
   | "ea/not_invite_or_admin"
 
 type LeaveTeamErrors =
-  | "team/invalid_id"
-  | "team/member_not_found"
-  | "ea/not_invite_or_admin"
+  "team/invalid_id" | "team/member_not_found" | "ea/not_invite_or_admin"
 
 type CreateTeamErrors = "team/name_invalid" | "ea/not_invite_or_admin"
 
 type RenameTeamErrors =
-  | "ea/not_invite_or_admin"
-  | "team/invalid_id"
-  | "team/not_required_role"
+  "ea/not_invite_or_admin" | "team/invalid_id" | "team/not_required_role"
 
-type UpdateTeamMemberRoleErrors =
-  | "ea/not_invite_or_admin"
-  | "team/invalid_id"
-  | "team/not_required_role"
+type UpdateTeamAccessRoleErrors =
+  "ea/not_invite_or_admin" | "team/invalid_id" | "team/not_required_role"
 
 type RemoveTeamMemberErrors =
-  | "ea/not_invite_or_admin"
-  | "team/invalid_id"
-  | "team/not_required_role"
+  "ea/not_invite_or_admin" | "team/invalid_id" | "team/not_required_role"
 
-export const createTeam = (name: TeamName) =>
-  pipe(
-    runMutation<
-      CreateTeamMutation,
-      CreateTeamMutationVariables,
-      CreateTeamErrors
-    >(CreateTeamDocument, {
-      name,
-    }),
+export const createTeam = (name: TeamName) => {
+  return pipe(
+    platform.backend.createTeam<CreateTeamErrors>(name),
     TE.map(({ createTeam }) => createTeam)
   )
+}
 
 export const deleteTeam = (teamID: string) =>
   runMutation<
@@ -103,22 +88,22 @@ export const renameTeam = (teamID: string, newName: TeamName) =>
     TE.map(({ renameTeam }) => renameTeam)
   )
 
-export const updateTeamMemberRole = (
+export const updateTeamAccessRole = (
   userUid: string,
   teamID: string,
-  newRole: TeamMemberRole
+  newRole: TeamAccessRole
 ) =>
   pipe(
     runMutation<
-      UpdateTeamMemberRoleMutation,
-      UpdateTeamMemberRoleMutationVariables,
-      UpdateTeamMemberRoleErrors
-    >(UpdateTeamMemberRoleDocument, {
+      UpdateTeamAccessRoleMutation,
+      UpdateTeamAccessRoleMutationVariables,
+      UpdateTeamAccessRoleErrors
+    >(UpdateTeamAccessRoleDocument, {
       newRole,
       userUid,
       teamID,
     }),
-    TE.map(({ updateTeamMemberRole }) => updateTeamMemberRole)
+    TE.map(({ updateTeamAccessRole }) => updateTeamAccessRole)
   )
 
 export const removeTeamMember = (userUid: string, teamID: string) =>

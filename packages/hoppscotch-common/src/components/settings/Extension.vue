@@ -12,39 +12,25 @@
       {{ t("settings.extension_ver_not_reported") }}
     </span>
   </div>
-  <div class="flex flex-col py-4 space-y-2">
-    <span>
-      <HoppSmartItem
-        to="https://chrome.google.com/webstore/detail/hoppscotch-browser-extens/amknoiejhlmhancpahfcfcfhllgkpbld"
-        blank
-        :icon="IconChrome"
-        label="Chrome"
-        :info-icon="hasChromeExtInstalled ? IconCheckCircle : null"
-        :active-info-icon="hasChromeExtInstalled"
-        outline
-      />
-    </span>
-    <span>
-      <HoppSmartItem
-        to="https://addons.mozilla.org/en-US/firefox/addon/hoppscotch"
-        blank
-        :icon="IconFirefox"
-        label="Firefox"
-        :info-icon="hasFirefoxExtInstalled ? IconCheckCircle : null"
-        :active-info-icon="hasFirefoxExtInstalled"
-        outline
-      />
-    </span>
-  </div>
-  <div class="py-4 space-y-4">
-    <div class="flex items-center">
-      <HoppSmartToggle
-        :on="extensionEnabled"
-        @change="extensionEnabled = !extensionEnabled"
-      >
-        {{ t("settings.extensions_use_toggle") }}
-      </HoppSmartToggle>
-    </div>
+  <div class="flex gap-2 py-2 w-fit">
+    <HoppSmartItem
+      to="https://chrome.google.com/webstore/detail/hoppscotch-browser-extens/amknoiejhlmhancpahfcfcfhllgkpbld"
+      blank
+      :icon="IconChrome"
+      label="Chrome"
+      :info-icon="hasChromeExtInstalled ? IconCheckCircle : undefined"
+      :active-info-icon="hasChromeExtInstalled"
+      outline
+    />
+    <HoppSmartItem
+      to="https://addons.mozilla.org/en-US/firefox/addon/hoppscotch"
+      blank
+      :icon="IconFirefox"
+      label="Firefox"
+      :info-icon="hasFirefoxExtInstalled ? IconCheckCircle : undefined"
+      :active-info-icon="hasFirefoxExtInstalled"
+      outline
+    />
   </div>
 </template>
 
@@ -53,36 +39,19 @@ import IconChrome from "~icons/brands/chrome"
 import IconFirefox from "~icons/brands/firefox"
 import IconCheckCircle from "~icons/lucide/check-circle"
 import { useI18n } from "@composables/i18n"
-import { ExtensionInterceptorService } from "~/platform/std/interceptors/extension"
-import { useService } from "dioc/vue"
 import { computed } from "vue"
-import { InterceptorService } from "~/services/interceptor.service"
-import { platform } from "~/platform"
+import { useService } from "dioc/vue"
+import { ExtensionKernelInterceptorService } from "~/platform/std/kernel-interceptors/extension"
 
 const t = useI18n()
 
-const interceptorService = useService(InterceptorService)
-const extensionService = useService(ExtensionInterceptorService)
+const extensionService = useService(ExtensionKernelInterceptorService)
 
-const extensionVersion = extensionService.extensionVersion
+const extensionVersion = computed(() => {
+  const versionOption = extensionService.extensionVersion
+  return versionOption.value ? versionOption.value : null
+})
+
 const hasChromeExtInstalled = extensionService.chromeExtensionInstalled
 const hasFirefoxExtInstalled = extensionService.firefoxExtensionInstalled
-
-const extensionEnabled = computed({
-  get() {
-    return (
-      interceptorService.currentInterceptorID.value ===
-      extensionService.interceptorID
-    )
-  },
-  set(active) {
-    if (active) {
-      interceptorService.currentInterceptorID.value =
-        extensionService.interceptorID
-    } else {
-      interceptorService.currentInterceptorID.value =
-        platform.interceptors.default
-    }
-  },
-})
 </script>

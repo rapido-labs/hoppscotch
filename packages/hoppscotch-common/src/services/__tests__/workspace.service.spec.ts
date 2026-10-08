@@ -2,6 +2,10 @@ import { describe, expect, vi, it, beforeEach, afterEach } from "vitest"
 import { TestContainer } from "dioc/testing"
 import { WorkspaceService } from "../workspace.service"
 import { setPlatformDef } from "~/platform"
+import {
+  getSelectedEnvironmentIndex,
+  setSelectedEnvironmentIndex,
+} from "~/newstore/environments"
 import { BehaviorSubject } from "rxjs"
 import { effectScope, nextTick } from "vue"
 
@@ -25,11 +29,48 @@ vi.mock("~/helpers/teams/TeamListAdapter", () => ({
   },
 }))
 
+// Mock TeamCollectionsService to prevent i18n dependency issues
+vi.mock("../team-collection.service", () => ({
+  TeamCollectionsService: class MockTeamCollectionsService {
+    static readonly ID = "TEAM_COLLECTIONS_SERVICE"
+
+    changeTeamID = vi.fn()
+    clearCollections = vi.fn()
+
+    onServiceInit = vi.fn()
+  },
+}))
+
+// Mock DocumentationService
+vi.mock("../documentation.service", () => ({
+  DocumentationService: class MockDocumentationService {
+    static readonly ID = "DOCUMENTATION_SERVICE"
+
+    fetchTeamPublishedDocs = vi.fn()
+    fetchUserPublishedDocs = vi.fn()
+
+    onServiceInit = vi.fn()
+  },
+}))
+
+// Mock WorkspaceTabsService — it indirectly pulls in PersistenceService which
+// triggers an i18n getService() call at module init, breaking this test's setup.
+vi.mock("../tab/workspace-tabs", () => ({
+  WorkspaceTabsService: class MockWorkspaceTabsService {
+    static readonly ID = "WORKSPACE_TABS_SERVICE"
+
+    attachToWorkspace = vi.fn()
+
+    onServiceInit = vi.fn()
+  },
+}))
+
 describe("WorkspaceService", () => {
   const platformMock = {
     auth: {
       getCurrentUserStream: vi.fn(),
       getCurrentUser: vi.fn(),
+      waitProbableLoginToConfirm: vi.fn().mockResolvedValue(undefined),
     },
   }
 
@@ -64,6 +105,7 @@ describe("WorkspaceService", () => {
         type: "team",
         teamID: "test",
         teamName: "before update",
+        role: null,
       })
 
       service.updateWorkspaceTeamName("test")
@@ -72,6 +114,7 @@ describe("WorkspaceService", () => {
         type: "team",
         teamID: "test",
         teamName: "test",
+        role: null,
       })
     })
 
@@ -100,13 +143,158 @@ describe("WorkspaceService", () => {
         type: "team",
         teamID: "test",
         teamName: "test",
+        role: null,
       })
 
       expect(service.currentWorkspace.value).toEqual({
         type: "team",
         teamID: "test",
         teamName: "test",
+        role: null,
       })
+    })
+
+    it("is a no-op when re-selecting the current workspace", () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      service.changeWorkspace({
+        type: "team",
+        teamID: "test",
+        teamName: "test",
+        role: null,
+      })
+      const before = service.currentWorkspace.value
+
+      // Fresh-but-identical object must not retrigger workspace watchers
+      service.changeWorkspace({
+        type: "team",
+        teamID: "test",
+        teamName: "test",
+        role: null,
+      })
+
+      expect(service.currentWorkspace.value).toBe(before)
+    })
+
+    it("resets a selected team environment when switching to the personal workspace", () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-a",
+        teamName: "Team A",
+        role: null,
+      })
+      setSelectedEnvironmentIndex({
+        type: "TEAM_ENV",
+        teamID: "team-a",
+        teamEnvID: "env-1",
+        environment: { v: 2, id: "env-1", name: "Team Env", variables: [] },
+      })
+
+      service.changeWorkspace({ type: "personal" })
+
+      expect(getSelectedEnvironmentIndex()).toEqual({
+        type: "NO_ENV_SELECTED",
+      })
+    })
+
+    it("resets a selected team environment when switching to a different team", () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      setSelectedEnvironmentIndex({
+        type: "TEAM_ENV",
+        teamID: "team-a",
+        teamEnvID: "env-1",
+        environment: { v: 2, id: "env-1", name: "Team Env", variables: [] },
+      })
+
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-b",
+        teamName: "Other Team",
+        role: null,
+      })
+
+      expect(getSelectedEnvironmentIndex()).toEqual({
+        type: "NO_ENV_SELECTED",
+      })
+    })
+
+    it("keeps the selected team environment when switching within the same team", () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      setSelectedEnvironmentIndex({
+        type: "TEAM_ENV",
+        teamID: "team-a",
+        teamEnvID: "env-1",
+        environment: { v: 2, id: "env-1", name: "Team Env", variables: [] },
+      })
+
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-a",
+        teamName: "Same Team",
+        role: null,
+      })
+
+      expect(getSelectedEnvironmentIndex().type).toBe("TEAM_ENV")
+    })
+
+    it("keeps a selected personal environment when switching workspaces", () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      setSelectedEnvironmentIndex({ type: "MY_ENV", index: 0 })
+
+      service.changeWorkspace({ type: "personal" })
+
+      expect(getSelectedEnvironmentIndex()).toEqual({
+        type: "MY_ENV",
+        index: 0,
+      })
+    })
+  })
+
+  describe("logout", () => {
+    it("falls back to the personal workspace when the user logs out of a team", async () => {
+      const userStream = new BehaviorSubject<unknown>({ uid: "user-1" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(userStream)
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "user-1" })
+
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-a",
+        teamName: "Team A",
+        role: null,
+      })
+      expect(service.currentWorkspace.value.type).toBe("team")
+
+      userStream.next(null)
+      await nextTick()
+
+      expect(service.currentWorkspace.value).toEqual({ type: "personal" })
+    })
+
+    it("leaves a personal workspace untouched on logout", async () => {
+      const userStream = new BehaviorSubject<unknown>({ uid: "user-1" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(userStream)
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "user-1" })
+
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      userStream.next(null)
+      await nextTick()
+
+      expect(service.currentWorkspace.value).toEqual({ type: "personal" })
     })
   })
 
@@ -233,6 +421,294 @@ describe("WorkspaceService", () => {
       vi.advanceTimersByTime(100)
 
       expect(listAdapterMock.fetchList).not.toHaveBeenCalled()
+    })
+  })
+
+  describe("Workspace Synchronization", () => {
+    it("should call changeTeamID and fetchTeamPublishedDocs when workspace changes to a team workspace", async () => {
+      const container = new TestContainer()
+
+      // Mock user for this test
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "test-user" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(
+        new BehaviorSubject({ uid: "test-user" })
+      )
+
+      const service = container.bind(WorkspaceService)
+
+      // Access the mocks
+      const teamCollectionServiceMock = (service as any).teamCollectionService
+      const documentationServiceMock = (service as any).documentationService
+
+      // Change to team workspace
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-123",
+        teamName: "Test Team",
+        role: null,
+      })
+
+      await nextTick()
+
+      expect(teamCollectionServiceMock.changeTeamID).toHaveBeenCalledWith(
+        "team-123"
+      )
+      expect(
+        documentationServiceMock.fetchTeamPublishedDocs
+      ).toHaveBeenCalledWith("team-123")
+    })
+
+    it("should call clearCollections and fetchUserPublishedDocs when workspace changes to personal workspace", async () => {
+      const container = new TestContainer()
+
+      // Mock user for this test
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "test-user" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(
+        new BehaviorSubject({ uid: "test-user" })
+      )
+
+      const service = container.bind(WorkspaceService)
+
+      // Start with a team workspace
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-123",
+        teamName: "Test Team",
+        role: null,
+      })
+
+      await nextTick()
+
+      const teamCollectionServiceMock = (service as any).teamCollectionService
+      const documentationServiceMock = (service as any).documentationService
+
+      teamCollectionServiceMock.clearCollections.mockClear()
+      documentationServiceMock.fetchUserPublishedDocs.mockClear()
+
+      // Change to personal workspace
+      service.changeWorkspace({
+        type: "personal",
+      })
+
+      await nextTick()
+
+      expect(teamCollectionServiceMock.clearCollections).toHaveBeenCalled()
+      expect(documentationServiceMock.fetchUserPublishedDocs).toHaveBeenCalled()
+    })
+
+    it("should call clearCollections and fetchUserPublishedDocs when workspace changes to team workspace without teamID", async () => {
+      const container = new TestContainer()
+
+      // Mock user for this test
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "test-user" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(
+        new BehaviorSubject({ uid: "test-user" })
+      )
+
+      const service = container.bind(WorkspaceService)
+
+      const teamCollectionServiceMock = (service as any).teamCollectionService
+      const documentationServiceMock = (service as any).documentationService
+
+      // Change to team workspace without teamID
+      service.changeWorkspace({
+        type: "team",
+        teamID: "",
+        teamName: "Test Team",
+        role: null,
+      })
+
+      await nextTick()
+
+      expect(teamCollectionServiceMock.clearCollections).toHaveBeenCalled()
+      expect(documentationServiceMock.fetchUserPublishedDocs).toHaveBeenCalled()
+    })
+
+    it("should not sync when workspaces are effectively the same", async () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      // Start with a team workspace
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-123",
+        teamName: "Test Team",
+        role: null,
+      })
+
+      await nextTick()
+
+      const teamCollectionServiceMock = (service as any).teamCollectionService
+      const documentationServiceMock = (service as any).documentationService
+
+      teamCollectionServiceMock.changeTeamID.mockClear()
+      documentationServiceMock.fetchTeamPublishedDocs.mockClear()
+
+      // Change to same team workspace (different name, same ID)
+      service.changeWorkspace({
+        type: "team",
+        teamID: "team-123",
+        teamName: "Updated Team Name",
+        role: null,
+      })
+
+      await nextTick()
+
+      // Should not call sync methods again since it's the same team
+      expect(teamCollectionServiceMock.changeTeamID).not.toHaveBeenCalled()
+      expect(
+        documentationServiceMock.fetchTeamPublishedDocs
+      ).not.toHaveBeenCalled()
+    })
+
+    it("should handle errors during synchronization gracefully", async () => {
+      const container = new TestContainer()
+      const service = container.bind(WorkspaceService)
+
+      const teamCollectionServiceMock = (service as any).teamCollectionService
+      teamCollectionServiceMock.changeTeamID.mockImplementation(() => {
+        throw new Error("Sync failed")
+      })
+
+      const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+
+      // Change to team workspace (should not throw)
+      expect(() => {
+        service.changeWorkspace({
+          type: "team",
+          teamID: "team-123",
+          teamName: "Test Team",
+          role: null,
+        })
+      }).not.toThrow()
+
+      await nextTick()
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Failed to sync workspace data:",
+        expect.any(Error)
+      )
+
+      consoleSpy.mockRestore()
+    })
+
+    it("should fetch user published docs only when user is authenticated", async () => {
+      // Case 1: No user
+      platformMock.auth.getCurrentUser.mockReturnValue(null)
+      platformMock.auth.getCurrentUserStream.mockReturnValue(
+        new BehaviorSubject(null)
+      )
+      const container1 = new TestContainer()
+      const service1 = container1.bind(WorkspaceService)
+      const docMock1 = (service1 as any).documentationService
+      docMock1.fetchUserPublishedDocs.mockClear()
+
+      service1.changeWorkspace({ type: "personal" })
+      await nextTick()
+      expect(docMock1.fetchUserPublishedDocs).not.toHaveBeenCalled()
+
+      // Case 2: With user
+      platformMock.auth.getCurrentUser.mockReturnValue({ uid: "test-user" })
+      platformMock.auth.getCurrentUserStream.mockReturnValue(
+        new BehaviorSubject({ uid: "test-user" })
+      )
+      const container2 = new TestContainer()
+      const service2 = container2.bind(WorkspaceService)
+      const docMock2 = (service2 as any).documentationService
+
+      // We check if it was called on initialization
+      await nextTick()
+      expect(docMock2.fetchUserPublishedDocs).toHaveBeenCalled()
+    })
+  })
+
+  describe("areWorkspacesEqual", () => {
+    let service: WorkspaceService
+
+    beforeEach(() => {
+      const container = new TestContainer()
+      service = container.bind(WorkspaceService)
+    })
+
+    it("should return false when newWorkspace is undefined", () => {
+      const result = (service as any).areWorkspacesEqual(undefined, {
+        type: "personal",
+      })
+      expect(result).toBe(false)
+    })
+
+    it("should return false when oldWorkspace is undefined", () => {
+      const result = (service as any).areWorkspacesEqual(
+        { type: "personal" },
+        undefined
+      )
+      expect(result).toBe(false)
+    })
+
+    it("should return true when both workspaces are personal", () => {
+      const result = (service as any).areWorkspacesEqual(
+        { type: "personal" },
+        { type: "personal" }
+      )
+      expect(result).toBe(true)
+    })
+
+    it("should return true when both workspaces are team workspaces with same teamID", () => {
+      const workspace1 = {
+        type: "team",
+        teamID: "team-123",
+        teamName: "Team A",
+        role: null,
+      }
+      const workspace2 = {
+        type: "team",
+        teamID: "team-123",
+        teamName: "Team A Updated",
+        role: null,
+      }
+
+      const result = (service as any).areWorkspacesEqual(workspace1, workspace2)
+      expect(result).toBe(true)
+    })
+
+    it("should return false when team workspaces have different teamIDs", () => {
+      const workspace1 = {
+        type: "team",
+        teamID: "team-123",
+        teamName: "Team A",
+        role: null,
+      }
+      const workspace2 = {
+        type: "team",
+        teamID: "team-456",
+        teamName: "Team B",
+        role: null,
+      }
+
+      const result = (service as any).areWorkspacesEqual(workspace1, workspace2)
+      expect(result).toBe(false)
+    })
+
+    it("should return false when one is personal and other is team workspace", () => {
+      const personalWorkspace = { type: "personal" }
+      const teamWorkspace = {
+        type: "team",
+        teamID: "team-123",
+        teamName: "Team A",
+        role: null,
+      }
+
+      const result1 = (service as any).areWorkspacesEqual(
+        personalWorkspace,
+        teamWorkspace
+      )
+      const result2 = (service as any).areWorkspacesEqual(
+        teamWorkspace,
+        personalWorkspace
+      )
+
+      expect(result1).toBe(false)
+      expect(result2).toBe(false)
     })
   })
 })

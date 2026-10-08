@@ -1,19 +1,16 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: [ "./src/index.ts" ],
+  entry: ["./src/index.ts"],
   outDir: "./dist/",
-  format: ["cjs"],
+  format: ["esm"],
   platform: "node",
   sourcemap: true,
   bundle: true,
-  target: "node12",
+  target: "esnext",
   skipNodeModulesBundle: false,
   esbuildOptions(options) {
-    options.bundle = true
+    options.bundle = true;
   },
-  noExternal:  [
-    /\w+/
-  ],
   clean: true,
 });

@@ -46,7 +46,7 @@ export type SaveFileResponse =
   | {
       /**
        * The implementation was unable to determine the status of the save operation.
-       * This cannot be considered a success or a failure and should be handled as an uncertainity.
+       * This cannot be considered a success or a failure and should be handled as an uncertainty.
        * The browser standard implementation (std) returns this value as there is no way to
        * check if the user downloaded the file or not.
        */
@@ -81,4 +81,11 @@ export type IOPlatformDef = {
   saveFileWithDialog: (
     opts: SaveFileWithDialogOptions
   ) => Promise<SaveFileResponse>
+
+  /**
+   * Opens a link in the user's browser.
+   * The expected behaviour is for the browser to open a new tab/window (for example in desktop app) with the given URL.
+   * @param url The URL to open
+   */
+  openExternalLink: (url: string) => Promise<void>
 }

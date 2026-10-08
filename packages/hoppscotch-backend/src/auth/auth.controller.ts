@@ -2,12 +2,12 @@ import {
   Body,
   Controller,
   Get,
-  InternalServerErrorException,
   Post,
   Query,
   Request,
   Res,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignInMagicDto } from './dto/signin-magic.dto';
@@ -19,23 +19,31 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GqlUser } from 'src/decorators/gql-user.decorator';
 import { AuthUser } from 'src/types/AuthUser';
 import { RTCookie } from 'src/decorators/rt-cookie.decorator';
-import {
-  AuthProvider,
-  authCookieHandler,
-  authProviderCheck,
-  throwHTTPErr,
-} from './helper';
+import { AuthProvider, authCookieHandler, authProviderCheck } from './helper';
+import { isValidLocalhostRedirectUri } from './redirect-uri.validator';
 import { GoogleSSOGuard } from './guards/google-sso.guard';
 import { GithubSSOGuard } from './guards/github-sso.guard';
-import { MicrosoftSSOGuard } from './guards/microsoft-sso-.guard';
+import { MicrosoftSSOGuard } from './guards/microsoft-sso.guard';
 import { ThrottlerBehindProxyGuard } from 'src/guards/throttler-behind-proxy.guard';
 import { SkipThrottle } from '@nestjs/throttler';
 import { AUTH_PROVIDER_NOT_SPECIFIED } from 'src/errors';
+import { ConfigService } from '@nestjs/config';
+import { throwHTTPErr } from 'src/utils';
+import { UserLastLoginInterceptor } from 'src/interceptors/user-last-login.interceptor';
 
 @UseGuards(ThrottlerBehindProxyGuard)
 @Controller({ path: 'auth', version: '1' })
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private configService: ConfigService,
+  ) {}
+
+  @Get('providers')
+  async getAuthProviders() {
+    const providers = await this.authService.getAuthProviders();
+    return { providers };
+  }
 
   /**
    ** Route to initiate magic-link auth for a users email
@@ -45,8 +53,14 @@ export class AuthController {
     @Body() authData: SignInMagicDto,
     @Query('origin') origin: string,
   ) {
-    if (!authProviderCheck(AuthProvider.EMAIL))
+    if (
+      !authProviderCheck(
+        AuthProvider.EMAIL,
+        this.configService.get('INFRA.VITE_ALLOWED_AUTH_PROVIDERS'),
+      )
+    ) {
       throwHTTPErr({ message: AUTH_PROVIDER_NOT_SPECIFIED, statusCode: 404 });
+    }
 
     const deviceIdToken = await this.authService.signInMagicLink(
       authData.email,
@@ -63,7 +77,7 @@ export class AuthController {
   async verify(@Body() data: VerifyMagicDto, @Res() res: Response) {
     const authTokens = await this.authService.verifyMagicLinkTokens(data);
     if (E.isLeft(authTokens)) throwHTTPErr(authTokens.left);
-    authCookieHandler(res, authTokens.right, false, null);
+    authCookieHandler(res, authTokens.right, false, null, this.configService);
   }
 
   /**
@@ -82,7 +96,7 @@ export class AuthController {
       user,
     );
     if (E.isLeft(newTokenPair)) throwHTTPErr(newTokenPair.left);
-    authCookieHandler(res, newTokenPair.right, false, null);
+    authCookieHandler(res, newTokenPair.right, false, null, this.configService);
   }
 
   /**
@@ -99,6 +113,7 @@ export class AuthController {
   @Get('google/callback')
   @SkipThrottle()
   @UseGuards(GoogleSSOGuard)
+  @UseInterceptors(UserLastLoginInterceptor)
   async googleAuthRedirect(@Request() req, @Res() res) {
     const authTokens = await this.authService.generateAuthTokens(req.user.uid);
     if (E.isLeft(authTokens)) throwHTTPErr(authTokens.left);
@@ -107,6 +122,7 @@ export class AuthController {
       authTokens.right,
       true,
       req.authInfo.state.redirect_uri,
+      this.configService,
     );
   }
 
@@ -124,6 +140,7 @@ export class AuthController {
   @Get('github/callback')
   @SkipThrottle()
   @UseGuards(GithubSSOGuard)
+  @UseInterceptors(UserLastLoginInterceptor)
   async githubAuthRedirect(@Request() req, @Res() res) {
     const authTokens = await this.authService.generateAuthTokens(req.user.uid);
     if (E.isLeft(authTokens)) throwHTTPErr(authTokens.left);
@@ -132,6 +149,7 @@ export class AuthController {
       authTokens.right,
       true,
       req.authInfo.state.redirect_uri,
+      this.configService,
     );
   }
 
@@ -149,6 +167,7 @@ export class AuthController {
   @Get('microsoft/callback')
   @SkipThrottle()
   @UseGuards(MicrosoftSSOGuard)
+  @UseInterceptors(UserLastLoginInterceptor)
   async microsoftAuthRedirect(@Request() req, @Res() res) {
     const authTokens = await this.authService.generateAuthTokens(req.user.uid);
     if (E.isLeft(authTokens)) throwHTTPErr(authTokens.left);
@@ -157,6 +176,7 @@ export class AuthController {
       authTokens.right,
       true,
       req.authInfo.state.redirect_uri,
+      this.configService,
     );
   }
 
@@ -176,5 +196,35 @@ export class AuthController {
     const userInfo = await this.authService.verifyAdmin(user);
     if (E.isLeft(userInfo)) throwHTTPErr(userInfo.left);
     return userInfo.right;
+  }
+
+  @Get('desktop')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(UserLastLoginInterceptor)
+  async desktopAuthCallback(
+    @GqlUser() user: AuthUser,
+    @Query('redirect_uri') redirectUri: string,
+  ) {
+    if (!isValidLocalhostRedirectUri(redirectUri)) {
+      throwHTTPErr({
+        message: 'Invalid desktop callback URL',
+        statusCode: 400,
+      });
+    }
+
+    const tokens = await this.authService.generateAuthTokens(user.uid);
+    if (E.isLeft(tokens)) throwHTTPErr(tokens.left);
+
+    return tokens.right;
+  }
+
+  @Get('verify-token')
+  @UseGuards(JwtAuthGuard)
+  async verifyToken(@GqlUser() user: AuthUser) {
+    return {
+      isValid: true,
+      uid: user.uid,
+      message: 'Token is valid',
+    };
   }
 }

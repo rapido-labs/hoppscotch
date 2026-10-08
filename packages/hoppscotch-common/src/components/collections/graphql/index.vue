@@ -1,7 +1,7 @@
 <template>
   <div :class="{ 'rounded border border-divider': saveRequest }">
     <div
-      class="sticky z-10 flex flex-col flex-shrink-0 overflow-x-auto rounded-t bg-primary"
+      class="sticky z-10 flex flex-shrink-0 flex-col overflow-x-auto rounded-t bg-primary"
       :style="
         saveRequest ? 'top: calc(-1 * var(--line-height-body))' : 'top: 0'
       "
@@ -11,10 +11,10 @@
         type="search"
         autocomplete="off"
         :placeholder="t('action.search')"
-        class="py-2 pl-4 pr-2 bg-transparent !border-0"
+        class="flex w-full bg-transparent px-4 py-2 h-8"
       />
       <div
-        class="flex justify-between flex-1 flex-shrink-0 border-y bg-primary border-dividerLight"
+        class="flex flex-1 flex-shrink-0 justify-between border-y border-dividerLight bg-primary"
       >
         <HoppButtonSecondary
           :icon="IconPlus"
@@ -46,6 +46,7 @@
         :key="`collection-${index}`"
         :picked="picked"
         :name="collection.name"
+        :folder-path="String(index)"
         :collection-index="index"
         :collection="collection"
         :is-filtered="filterText.length > 0"
@@ -54,10 +55,14 @@
         @add-request="addRequest($event)"
         @add-folder="addFolder($event)"
         @edit-folder="editFolder($event)"
+        @duplicate-collection="duplicateCollection($event)"
         @edit-request="editRequest($event)"
         @duplicate-request="duplicateRequest($event)"
         @select-collection="$emit('use-collection', collection)"
+        @edit-properties="editProperties($event)"
         @select="$emit('select', $event)"
+        @select-request="selectRequest($event)"
+        @drop-request="dropRequest($event)"
       />
     </div>
     <HoppSmartPlaceholder
@@ -66,34 +71,36 @@
       :alt="`${t('empty.collections')}`"
       :text="t('empty.collections')"
     >
-      <div class="flex flex-col items-center space-y-4">
-        <span class="text-secondaryLight text-center">
-          {{ t("collection.import_or_create") }}
-        </span>
-        <div class="flex gap-4 flex-col items-stretch">
-          <HoppButtonPrimary
-            :icon="IconImport"
-            :label="t('import.title')"
-            filled
-            outline
-            @click="displayModalImportExport(true)"
-          />
-          <HoppButtonSecondary
-            :label="t('add.new')"
-            filled
-            outline
-            :icon="IconPlus"
-            @click="displayModalAdd(true)"
-          />
+      <template #body>
+        <div class="flex flex-col items-center space-y-4">
+          <span class="text-center text-secondaryLight">
+            {{ t("collection.import_or_create") }}
+          </span>
+          <div class="flex flex-col items-stretch gap-4">
+            <HoppButtonPrimary
+              :icon="IconImport"
+              :label="t('import.title')"
+              filled
+              outline
+              @click="displayModalImportExport(true)"
+            />
+            <HoppButtonSecondary
+              :label="t('add.new')"
+              filled
+              outline
+              :icon="IconPlus"
+              @click="displayModalAdd(true)"
+            />
+          </div>
         </div>
-      </div>
+      </template>
     </HoppSmartPlaceholder>
     <HoppSmartPlaceholder
       v-if="!(filteredCollections.length !== 0 || collections.length === 0)"
       :text="`${t('state.nothing_found')} ‟${filterText}”`"
     >
       <template #icon>
-        <icon-lucide-search class="pb-2 opacity-75 svg-icons" />
+        <icon-lucide-search class="svg-icons opacity-75" />
       </template>
     </HoppSmartPlaceholder>
     <CollectionsGraphqlAdd
@@ -133,26 +140,38 @@
       :folder-path="editingFolderPath"
       :request="editingRequest"
       :request-index="editingRequestIndex"
+      :request-context="editingRequest"
       :editing-request-name="editingRequest ? editingRequest.name : ''"
       @hide-modal="displayModalEditRequest(false)"
     />
     <CollectionsGraphqlImportExport
-      :show="showModalImportExport"
+      v-if="showModalImportExport"
       @hide-modal="displayModalImportExport(false)"
+    />
+    <CollectionsProperties
+      v-model="collectionPropertiesModalActiveTab"
+      :show="showModalEditProperties"
+      :editing-properties="editingProperties"
+      source="GraphQL"
+      @hide-modal="displayModalEditProperties(false)"
+      @set-collection-properties="setCollectionProperties"
     />
   </div>
 </template>
 
-<script lang="ts">
-// TODO: TypeScript + Script Setup this :)
-import { defineComponent } from "vue"
-import { cloneDeep, clone } from "lodash-es"
+<script setup lang="ts">
+import { nextTick, onMounted, ref } from "vue"
+import { clone, cloneDeep } from "lodash-es"
 import {
   graphqlCollections$,
   addGraphqlFolder,
   saveGraphqlRequestAs,
+  cascadeParentCollectionForProperties,
+  editGraphqlCollection,
+  editGraphqlFolder,
+  moveGraphqlRequest,
+  duplicateGraphQLCollection,
 } from "~/newstore/collections"
-
 import IconPlus from "~icons/lucide/plus"
 import IconHelpCircle from "~icons/lucide/help-circle"
 import IconImport from "~icons/lucide/folder-down"
@@ -162,213 +181,496 @@ import { useColorMode } from "@composables/theming"
 import { platform } from "~/platform"
 import { useService } from "dioc/vue"
 import { GQLTabService } from "~/services/tab/graphql"
+import { computed } from "vue"
+import {
+  getDefaultGQLRequest,
+  HoppCollection,
+  HoppGQLRequest,
+  isGQLRequest,
+} from "@hoppscotch/data"
+import { Picked } from "~/helpers/types/HoppPicked"
+import { HoppInheritedProperty } from "~/helpers/types/HoppInheritedProperties"
+import { updateInheritedPropertiesForAffectedRequests } from "~/helpers/collection/collection"
+import { useToast } from "~/composables/toast"
+import { getRequestsByPath } from "~/helpers/collection/request"
+import { PersistenceService } from "~/services/persistence"
+import { PersistedOAuthConfig } from "~/services/oauth/oauth.service"
+import { GQLOptionTabs } from "~/components/graphql/RequestOptions.vue"
+import { EditingProperties } from "../Properties.vue"
+import { defineActionHandler } from "~/helpers/actions"
+import { handleTokenValidation } from "~/helpers/handleTokenValidation"
 
-export default defineComponent({
-  props: {
-    // Whether to activate the ability to pick items (activates 'select' events)
-    saveRequest: { type: Boolean, default: false },
-    picked: { type: Object, default: null },
-  },
-  emits: ["select", "use-collection"],
-  setup() {
-    const collections = useReadonlyStream(graphqlCollections$, [], "deep")
-    const colorMode = useColorMode()
-    const t = useI18n()
-    const tabs = useService(GQLTabService)
+const t = useI18n()
+const toast = useToast()
 
-    return {
-      collections,
-      colorMode,
-      t,
-      tabs,
-      IconPlus,
-      IconHelpCircle,
-      IconImport,
-    }
-  },
-  data() {
-    return {
-      showModalAdd: false,
-      showModalEdit: false,
-      showModalImportExport: false,
-      showModalAddRequest: false,
-      showModalAddFolder: false,
-      showModalEditFolder: false,
-      showModalEditRequest: false,
-      editingCollection: undefined,
-      editingCollectionIndex: undefined,
-      editingFolder: undefined,
-      editingFolderName: undefined,
-      editingFolderIndex: undefined,
-      editingFolderPath: undefined,
-      editingRequest: undefined,
-      editingRequestIndex: undefined,
-      filterText: "",
-    }
-  },
-  computed: {
-    filteredCollections() {
-      const collections = clone(this.collections)
+defineProps<{
+  // Whether to activate the ability to pick items (activates 'select' events)
+  saveRequest: boolean
+  picked: Picked | null
+}>()
 
-      if (!this.filterText) return collections
+const collections = useReadonlyStream(graphqlCollections$, [], "deep")
+const colorMode = useColorMode()
+const tabs = useService(GQLTabService)
 
-      const filterText = this.filterText.toLowerCase()
-      const filteredCollections = []
+const showModalAdd = ref(false)
+const showModalEdit = ref(false)
+const showModalImportExport = ref(false)
+const showModalAddRequest = ref(false)
+const showModalAddFolder = ref(false)
+const showModalEditFolder = ref(false)
+const showModalEditRequest = ref(false)
+const showModalEditProperties = ref(false)
 
-      for (const collection of collections) {
-        const filteredRequests = []
-        const filteredFolders = []
-        for (const request of collection.requests) {
-          if (request.name.toLowerCase().includes(filterText))
-            filteredRequests.push(request)
-        }
-        for (const folder of collection.folders) {
-          const filteredFolderRequests = []
-          for (const request of folder.requests) {
-            if (request.name.toLowerCase().includes(filterText))
-              filteredFolderRequests.push(request)
-          }
-          if (filteredFolderRequests.length > 0) {
-            const filteredFolder = Object.assign({}, folder)
-            filteredFolder.requests = filteredFolderRequests
-            filteredFolders.push(filteredFolder)
-          }
-        }
+const editingCollection = ref<HoppCollection | null>(null)
+const editingCollectionIndex = ref<number | null>(null)
+const editingFolder = ref<HoppCollection | null>(null)
+const editingFolderName = ref("")
+const editingFolderIndex = ref<number | null>(null)
+const editingFolderPath = ref("")
+const editingRequest = ref<HoppGQLRequest | null>(null)
+const editingRequestIndex = ref<number | null>(null)
 
-        if (filteredRequests.length + filteredFolders.length > 0) {
-          const filteredCollection = Object.assign({}, collection)
-          filteredCollection.requests = filteredRequests
-          filteredCollection.folders = filteredFolders
-          filteredCollections.push(filteredCollection)
+const editingProperties = ref<{
+  collection: Partial<HoppCollection> | null
+  isRootCollection: boolean
+  path: string
+  inheritedProperties?: HoppInheritedProperty
+}>({
+  collection: null,
+  isRootCollection: false,
+  path: "",
+  inheritedProperties: undefined,
+})
+
+const filterText = ref("")
+
+const persistenceService = useService(PersistenceService)
+
+const collectionPropertiesModalActiveTab = ref<GQLOptionTabs>("headers")
+
+onMounted(async () => {
+  const localOAuthTempConfig =
+    await persistenceService.getLocalConfig("oauth_temp_config")
+
+  if (!localOAuthTempConfig) {
+    return
+  }
+
+  const { context, source, token, refresh_token }: PersistedOAuthConfig =
+    JSON.parse(localOAuthTempConfig)
+
+  if (source === "REST") {
+    return
+  }
+
+  if (context?.type === "collection-properties") {
+    // load the unsaved editing properties
+    const unsavedCollectionPropertiesString =
+      await persistenceService.getLocalConfig("unsaved_collection_properties")
+
+    if (unsavedCollectionPropertiesString) {
+      const unsavedCollectionProperties: EditingProperties = JSON.parse(
+        unsavedCollectionPropertiesString
+      )
+
+      const auth = unsavedCollectionProperties.collection?.auth
+
+      if (auth?.authType === "oauth-2") {
+        const grantTypeInfo = auth.grantTypeInfo
+
+        grantTypeInfo && (grantTypeInfo.token = token ?? "")
+
+        if (refresh_token && grantTypeInfo.grantType === "AUTHORIZATION_CODE") {
+          grantTypeInfo.refreshToken = refresh_token
         }
       }
 
-      return filteredCollections
-    },
-  },
-  methods: {
-    displayModalAdd(shouldDisplay) {
-      this.showModalAdd = shouldDisplay
-    },
-    displayModalEdit(shouldDisplay) {
-      this.showModalEdit = shouldDisplay
+      editingProperties.value = unsavedCollectionProperties
+    }
 
-      if (!shouldDisplay) this.resetSelectedData()
-    },
-    displayModalImportExport(shouldDisplay) {
-      this.showModalImportExport = shouldDisplay
-    },
-    displayModalAddRequest(shouldDisplay) {
-      this.showModalAddRequest = shouldDisplay
+    await persistenceService.removeLocalConfig("oauth_temp_config")
+    collectionPropertiesModalActiveTab.value = "authorization"
+    showModalEditProperties.value = true
+  }
+})
 
-      if (!shouldDisplay) this.resetSelectedData()
-    },
-    displayModalAddFolder(shouldDisplay) {
-      this.showModalAddFolder = shouldDisplay
+const filteredCollections = computed(() => {
+  const collectionsClone = clone(collections.value)
 
-      if (!shouldDisplay) this.resetSelectedData()
-    },
-    displayModalEditFolder(shouldDisplay) {
-      this.showModalEditFolder = shouldDisplay
+  if (!filterText.value) return collectionsClone
 
-      if (!shouldDisplay) this.resetSelectedData()
-    },
-    displayModalEditRequest(shouldDisplay) {
-      this.showModalEditRequest = shouldDisplay
+  const filterTextLower = filterText.value.toLowerCase()
+  const filteredCollections = []
 
-      if (!shouldDisplay) this.resetSelectedData()
-    },
-    editCollection(collection, collectionIndex) {
-      this.$data.editingCollection = collection
-      this.$data.editingCollectionIndex = collectionIndex
-      this.displayModalEdit(true)
-    },
-    onAddRequest({ name, path, index }) {
-      const newRequest = {
-        ...this.tabs.currentActiveTab.value.document.request,
-        name,
+  for (const collection of collectionsClone) {
+    const filteredRequests = []
+    const filteredFolders = []
+
+    for (const request of collection.requests) {
+      if (request.name.toLowerCase().includes(filterTextLower))
+        filteredRequests.push(request)
+    }
+
+    for (const folder of collection.folders) {
+      const filteredFolderRequests = []
+      for (const request of folder.requests) {
+        if (request.name.toLowerCase().includes(filterTextLower))
+          filteredFolderRequests.push(request)
       }
+      if (filteredFolderRequests.length > 0) {
+        const filteredFolder = { ...folder }
+        filteredFolder.requests = filteredFolderRequests
+        filteredFolders.push(filteredFolder)
+      }
+    }
 
-      saveGraphqlRequestAs(path, newRequest)
+    if (filteredRequests.length + filteredFolders.length > 0) {
+      const filteredCollection = { ...collection }
+      filteredCollection.requests = filteredRequests
+      filteredCollection.folders = filteredFolders
+      filteredCollections.push(filteredCollection)
+    }
+  }
 
-      this.tabs.createNewTab({
-        saveContext: {
-          originLocation: "user-collection",
-          folderPath: path,
-          requestIndex: index,
-        },
-        request: newRequest,
-        isDirty: false,
-      })
+  return filteredCollections
+})
 
-      platform.analytics?.logEvent({
-        type: "HOPP_SAVE_REQUEST",
-        platform: "gql",
-        createdNow: true,
-        workspaceType: "personal",
-      })
+const displayModalAdd = async (shouldDisplay: boolean) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  showModalAdd.value = shouldDisplay
+}
 
-      this.displayModalAddRequest(false)
-    },
-    addRequest(payload) {
-      const { path } = payload
-      this.$data.editingFolderPath = path
-      this.displayModalAddRequest(true)
-    },
-    onAddFolder({ name, path }) {
-      addGraphqlFolder(name, path)
+const displayModalEdit = (shouldDisplay: boolean) => {
+  showModalEdit.value = shouldDisplay
 
-      platform.analytics?.logEvent({
-        type: "HOPP_CREATE_COLLECTION",
-        isRootCollection: false,
-        platform: "gql",
-        workspaceType: "personal",
-      })
+  if (!shouldDisplay) resetSelectedData()
+}
 
-      this.displayModalAddFolder(false)
+const displayModalImportExport = async (shouldDisplay: boolean) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  showModalImportExport.value = shouldDisplay
+}
+
+const displayModalAddRequest = (shouldDisplay: boolean) => {
+  showModalAddRequest.value = shouldDisplay
+
+  if (!shouldDisplay) resetSelectedData()
+}
+
+const displayModalAddFolder = (shouldDisplay: boolean) => {
+  showModalAddFolder.value = shouldDisplay
+
+  if (!shouldDisplay) resetSelectedData()
+}
+
+const displayModalEditFolder = (shouldDisplay: boolean) => {
+  showModalEditFolder.value = shouldDisplay
+
+  if (!shouldDisplay) resetSelectedData()
+}
+
+const displayModalEditRequest = (shouldDisplay: boolean) => {
+  showModalEditRequest.value = shouldDisplay
+
+  if (!shouldDisplay) resetSelectedData()
+}
+
+const displayModalEditProperties = (show: boolean) => {
+  showModalEditProperties.value = show
+
+  if (!show) resetSelectedData()
+}
+
+const editCollection = (
+  collection: HoppCollection,
+  collectionIndex: number
+) => {
+  editingCollection.value = collection
+  editingCollectionIndex.value = collectionIndex
+  displayModalEdit(true)
+}
+
+const duplicateCollection = async ({
+  path,
+  collectionSyncID,
+}: {
+  path: string
+  collectionSyncID?: string
+}) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  duplicateGraphQLCollection(path, collectionSyncID)
+}
+
+const onAddRequest = async ({ name, path }: { name: string; path: string }) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  const newRequest = {
+    ...getDefaultGQLRequest(),
+    name,
+  }
+
+  const insertionIndex = saveGraphqlRequestAs(path, newRequest)
+
+  tabs.createNewTab({
+    saveContext: {
+      originLocation: "user-collection",
+      folderPath: path,
+      requestIndex: insertionIndex,
     },
-    addFolder(payload) {
-      const { path } = payload
-      this.$data.editingFolderPath = path
-      this.displayModalAddFolder(true)
+    request: newRequest,
+    isDirty: false,
+    inheritedProperties: cascadeParentCollectionForProperties(path, "graphql"),
+  })
+
+  platform.analytics?.logEvent({
+    type: "HOPP_SAVE_REQUEST",
+    platform: "gql",
+    createdNow: true,
+    workspaceType: "personal",
+  })
+
+  displayModalAddRequest(false)
+}
+
+const addRequest = (payload: { path: string }) => {
+  const { path } = payload
+  editingFolderPath.value = path
+  displayModalAddRequest(true)
+}
+
+const onAddFolder = async ({
+  name,
+  path,
+}: {
+  name: string
+  path: string | undefined
+}) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  addGraphqlFolder(name, path ?? "0")
+
+  platform.analytics?.logEvent({
+    type: "HOPP_CREATE_COLLECTION",
+    isRootCollection: false,
+    platform: "gql",
+    workspaceType: "personal",
+  })
+
+  displayModalAddFolder(false)
+}
+
+const addFolder = (payload: { path: string }) => {
+  const { path } = payload
+  editingFolderPath.value = path
+  displayModalAddFolder(true)
+}
+
+const editFolder = (payload: {
+  folder: HoppCollection
+  folderPath: string
+}) => {
+  const { folder, folderPath } = payload
+  editingFolder.value = folder
+  editingFolderPath.value = folderPath
+  displayModalEditFolder(true)
+}
+
+const editRequest = (payload: {
+  collectionIndex: number
+  folderIndex: number
+  folderName: string
+  request: HoppGQLRequest
+  requestIndex: number
+  folderPath: string
+}) => {
+  const {
+    collectionIndex,
+    folderIndex,
+    folderName,
+    request,
+    requestIndex,
+    folderPath,
+  } = payload
+  editingFolderPath.value = folderPath
+  editingCollectionIndex.value = collectionIndex
+  editingFolderIndex.value = folderIndex
+  editingFolderName.value = folderName
+  editingRequest.value = request
+  editingRequestIndex.value = requestIndex
+  displayModalEditRequest(true)
+}
+
+const duplicateRequest = async ({
+  folderPath,
+  request,
+}: {
+  folderPath: string
+  request: HoppGQLRequest
+}) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  const { id: _, ...requestWithoutID } = request
+  saveGraphqlRequestAs(folderPath, {
+    ...cloneDeep(requestWithoutID),
+    name: `${request.name} - ${t("action.duplicate")}`,
+  })
+}
+
+const selectRequest = ({
+  request,
+  folderPath,
+  requestIndex,
+}: {
+  request: HoppGQLRequest
+  folderPath: string
+  requestIndex: number
+}) => {
+  // GQL collections can hold REST-shaped requests (mixed import) — they
+  // can't open as GQL tabs on this page
+  if (!isGQLRequest(request)) {
+    toast.error(t("request.rest_in_gql_collection"))
+    return
+  }
+  const possibleTab = tabs.getTabRefWithSaveContext({
+    originLocation: "user-collection",
+    folderPath: folderPath,
+    requestIndex: requestIndex,
+  })
+  // Switch to that request if that request is open
+  if (possibleTab) {
+    tabs.setActiveTab(possibleTab.value.id)
+    return
+  }
+  tabs.createNewTab({
+    saveContext: {
+      originLocation: "user-collection",
+      folderPath: folderPath,
+      requestIndex: requestIndex,
     },
-    editFolder(payload) {
-      const { folder, folderPath } = payload
-      this.editingFolder = folder
-      this.editingFolderPath = folderPath
-      this.displayModalEditFolder(true)
-    },
-    editRequest(payload) {
-      const {
-        collectionIndex,
-        folderIndex,
-        folderName,
-        request,
-        requestIndex,
-        folderPath,
-      } = payload
-      this.$data.editingFolderPath = folderPath
-      this.$data.editingCollectionIndex = collectionIndex
-      this.$data.editingFolderIndex = folderIndex
-      this.$data.editingFolderName = folderName
-      this.$data.editingRequest = request
-      this.$data.editingRequestIndex = requestIndex
-      this.displayModalEditRequest(true)
-    },
-    resetSelectedData() {
-      this.$data.editingCollection = undefined
-      this.$data.editingCollectionIndex = undefined
-      this.$data.editingFolder = undefined
-      this.$data.editingFolderIndex = undefined
-      this.$data.editingRequest = undefined
-      this.$data.editingRequestIndex = undefined
-    },
-    duplicateRequest({ folderPath, request }) {
-      saveGraphqlRequestAs(folderPath, {
-        ...cloneDeep(request),
-        name: `${request.name} - ${this.t("action.duplicate")}`,
-      })
-    },
-  },
+    request: cloneDeep(request),
+    isDirty: false,
+    inheritedProperties: cascadeParentCollectionForProperties(
+      folderPath,
+      "graphql"
+    ),
+  })
+}
+
+const dropRequest = async ({
+  folderPath,
+  requestIndex,
+  collectionIndex,
+}: {
+  folderPath: string
+  requestIndex: number
+  collectionIndex: number
+}) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+
+  const possibleTab = tabs.getTabRefWithSaveContext({
+    originLocation: "user-collection",
+    folderPath,
+    requestIndex: Number(requestIndex),
+  })
+
+  if (possibleTab) {
+    possibleTab.value.document.saveContext = {
+      originLocation: "user-collection",
+      folderPath: `${collectionIndex}`,
+      requestIndex: getRequestsByPath(collections.value, `${collectionIndex}`)
+        .length,
+    }
+
+    possibleTab.value.document.inheritedProperties =
+      cascadeParentCollectionForProperties(`${collectionIndex}`, "graphql")
+  }
+
+  moveGraphqlRequest(folderPath, requestIndex, `${collectionIndex}`)
+
+  toast.success(`${t("request.moved")}`)
+}
+
+/**
+ * Checks if the collection is already in the root
+ * @param id - path of the collection
+ * @returns boolean - true if the collection is already in the root
+ */
+const isAlreadyInRoot = (id: string) => {
+  const indexPath = id.split("/")
+  return indexPath.length === 1
+}
+
+const editProperties = ({
+  collectionIndex,
+  collection,
+}: {
+  collectionIndex: string | null
+  collection: HoppCollection | null
+}) => {
+  if (collectionIndex === null || collection === null) return
+
+  const parentIndex = collectionIndex.split("/").slice(0, -1).join("/") // remove last folder to get parent folder
+  let inheritedProperties = undefined
+  if (parentIndex && parentIndex !== "") {
+    inheritedProperties = cascadeParentCollectionForProperties(
+      parentIndex,
+      "graphql"
+    )
+  }
+
+  editingProperties.value = {
+    collection,
+    isRootCollection: isAlreadyInRoot(collectionIndex),
+    path: collectionIndex,
+    inheritedProperties,
+  }
+
+  displayModalEditProperties(true)
+}
+
+const setCollectionProperties = async (newCollection: {
+  collection: Partial<HoppCollection> | null
+  path: string
+  isRootCollection: boolean
+}) => {
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+  const { collection, path, isRootCollection } = newCollection
+
+  if (!collection) {
+    return
+  }
+
+  if (isRootCollection) {
+    editGraphqlCollection(parseInt(path), collection)
+  } else {
+    editGraphqlFolder(path, collection)
+  }
+
+  nextTick(() => {
+    updateInheritedPropertiesForAffectedRequests(path, "graphql")
+  })
+
+  displayModalEditProperties(false)
+}
+const resetSelectedData = () => {
+  editingCollection.value = null
+  editingCollectionIndex.value = null
+  editingFolder.value = null
+  editingFolderIndex.value = null
+  editingRequest.value = null
+  editingRequestIndex.value = null
+}
+
+defineActionHandler("collection.new", () => {
+  displayModalAdd(true)
+})
+defineActionHandler("modals.collection.import", () => {
+  displayModalImportExport(true)
 })
 </script>

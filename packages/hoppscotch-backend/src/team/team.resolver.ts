@@ -1,4 +1,4 @@
-import { Team, TeamMember, TeamMemberRole } from './team.model';
+import { Team, TeamMember, TeamAccessRole } from './team.model';
 import {
   Resolver,
   ResolveField,
@@ -18,10 +18,14 @@ import { RequiresTeamRole } from './decorators/requires-team-role.decorator';
 import { GqlTeamMemberGuard } from './guards/gql-team-member.guard';
 import { PubSubService } from '../pubsub/pubsub.service';
 import * as E from 'fp-ts/Either';
+import * as O from 'fp-ts/Option';
 import { throwErr } from 'src/utils';
 import { AuthUser } from 'src/types/AuthUser';
 import { GqlThrottlerGuard } from 'src/guards/gql-throttler.guard';
 import { SkipThrottle } from '@nestjs/throttler';
+import { GqlAdminGuard } from 'src/admin/guards/gql-admin.guard';
+import { UserService } from 'src/user/user.service';
+import { USER_NOT_FOUND } from 'src/errors';
 
 @UseGuards(GqlThrottlerGuard)
 @Resolver(() => Team)
@@ -29,6 +33,7 @@ export class TeamResolver {
   constructor(
     private readonly teamService: TeamService,
     private readonly pubsub: PubSubService,
+    private readonly userService: UserService,
   ) {}
 
   // Field Resolvers
@@ -59,7 +64,7 @@ export class TeamResolver {
     return this.teamService.getTeamMembers(team.id);
   }
 
-  @ResolveField(() => TeamMemberRole, {
+  @ResolveField(() => TeamAccessRole, {
     description: 'The role of the current user in the team',
     nullable: true,
   })
@@ -67,7 +72,7 @@ export class TeamResolver {
   myRole(
     @Parent() team: Team,
     @GqlUser() user: AuthUser,
-  ): Promise<TeamMemberRole | null> {
+  ): Promise<TeamAccessRole | null> {
     return this.teamService.getRoleOfUserInTeam(team.id, user.uid);
   }
 
@@ -77,7 +82,7 @@ export class TeamResolver {
   ownersCount(@Parent() team: Team): Promise<number> {
     return this.teamService.getCountOfUsersWithRoleInTeam(
       team.id,
-      TeamMemberRole.OWNER,
+      TeamAccessRole.OWNER,
     );
   }
 
@@ -87,7 +92,7 @@ export class TeamResolver {
   editorsCount(@Parent() team: Team): Promise<number> {
     return this.teamService.getCountOfUsersWithRoleInTeam(
       team.id,
-      TeamMemberRole.EDITOR,
+      TeamAccessRole.EDITOR,
     );
   }
 
@@ -97,7 +102,7 @@ export class TeamResolver {
   viewersCount(@Parent() team: Team): Promise<number> {
     return this.teamService.getCountOfUsersWithRoleInTeam(
       team.id,
-      TeamMemberRole.VIEWER,
+      TeamAccessRole.VIEWER,
     );
   }
 
@@ -126,9 +131,9 @@ export class TeamResolver {
   })
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
   @RequiresTeamRole(
-    TeamMemberRole.VIEWER,
-    TeamMemberRole.EDITOR,
-    TeamMemberRole.OWNER,
+    TeamAccessRole.VIEWER,
+    TeamAccessRole.EDITOR,
+    TeamAccessRole.OWNER,
   )
   team(
     @Args({
@@ -139,6 +144,39 @@ export class TeamResolver {
     teamID: string,
   ): Promise<Team | null> {
     return this.teamService.getTeamWithID(teamID);
+  }
+
+  @Query(() => [Team], {
+    description: 'Returns the list of teams a user is a member of (admin-only)',
+  })
+  @UseGuards(GqlAuthGuard, GqlAdminGuard)
+  async teamsOfUserByAdmin(
+    @Args({
+      name: 'userUid',
+      type: () => ID,
+      description: 'UID of the user to fetch teams for',
+    })
+    userUid: string,
+    @Args({
+      name: 'cursor',
+      type: () => ID,
+      description:
+        'The ID of the last returned team entry (used for pagination)',
+      nullable: true,
+    })
+    cursor?: string,
+    @Args({
+      name: 'take',
+      type: () => Int,
+      description: 'Number of teams to return per page',
+      nullable: true,
+      defaultValue: 10,
+    })
+    take?: number,
+  ): Promise<Team[]> {
+    const user = await this.userService.findUserById(userUid);
+    if (O.isNone(user)) throwErr(USER_NOT_FOUND);
+    return this.teamService.getTeamsOfUser(userUid, cursor ?? null, take);
   }
 
   // Mutation
@@ -178,7 +216,7 @@ export class TeamResolver {
     description: 'Removes the team member from the team',
   })
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
-  @RequiresTeamRole(TeamMemberRole.OWNER)
+  @RequiresTeamRole(TeamAccessRole.OWNER)
   async removeTeamMember(
     @GqlUser() _user: AuthUser,
     @Args({
@@ -203,7 +241,7 @@ export class TeamResolver {
     description: 'Renames a team',
   })
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
-  @RequiresTeamRole(TeamMemberRole.OWNER)
+  @RequiresTeamRole(TeamAccessRole.OWNER)
   async renameTeam(
     @Args({ name: 'teamID', description: 'ID of the team', type: () => ID })
     teamID: string,
@@ -219,7 +257,7 @@ export class TeamResolver {
     description: 'Deletes the team',
   })
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
-  @RequiresTeamRole(TeamMemberRole.OWNER)
+  @RequiresTeamRole(TeamAccessRole.OWNER)
   async deleteTeam(
     @Args({ name: 'teamID', description: 'ID of the team', type: () => ID })
     teamID: string,
@@ -232,9 +270,9 @@ export class TeamResolver {
   @Mutation(() => TeamMember, {
     description: 'Update role of a team member the executing user owns',
   })
-  @RequiresTeamRole(TeamMemberRole.OWNER)
+  @RequiresTeamRole(TeamAccessRole.OWNER)
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
-  async updateTeamMemberRole(
+  async updateTeamAccessRole(
     @Args({
       name: 'teamID',
       description: 'ID of the affected team',
@@ -250,11 +288,11 @@ export class TeamResolver {
     @Args({
       name: 'newRole',
       description: 'Updated role value',
-      type: () => TeamMemberRole,
+      type: () => TeamAccessRole,
     })
-    newRole: TeamMemberRole,
+    newRole: TeamAccessRole,
   ): Promise<TeamMember> {
-    const teamMember = await this.teamService.updateTeamMemberRole(
+    const teamMember = await this.teamService.updateTeamAccessRole(
       teamID,
       userUid,
       newRole,
@@ -270,9 +308,9 @@ export class TeamResolver {
     resolve: (value) => value,
   })
   @RequiresTeamRole(
-    TeamMemberRole.OWNER,
-    TeamMemberRole.EDITOR,
-    TeamMemberRole.VIEWER,
+    TeamAccessRole.OWNER,
+    TeamAccessRole.EDITOR,
+    TeamAccessRole.VIEWER,
   )
   @SkipThrottle()
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
@@ -293,9 +331,9 @@ export class TeamResolver {
     resolve: (value) => value,
   })
   @RequiresTeamRole(
-    TeamMemberRole.OWNER,
-    TeamMemberRole.EDITOR,
-    TeamMemberRole.VIEWER,
+    TeamAccessRole.OWNER,
+    TeamAccessRole.EDITOR,
+    TeamAccessRole.VIEWER,
   )
   @SkipThrottle()
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)
@@ -316,9 +354,9 @@ export class TeamResolver {
     resolve: (value) => value,
   })
   @RequiresTeamRole(
-    TeamMemberRole.OWNER,
-    TeamMemberRole.EDITOR,
-    TeamMemberRole.VIEWER,
+    TeamAccessRole.OWNER,
+    TeamAccessRole.EDITOR,
+    TeamAccessRole.VIEWER,
   )
   @SkipThrottle()
   @UseGuards(GqlAuthGuard, GqlTeamMemberGuard)

@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import * as O from 'fp-ts/Option';
 import * as E from 'fp-ts/Either';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { TeamInvitation as DBTeamInvitation } from '@prisma/client';
-import { TeamMember, TeamMemberRole } from 'src/team/team.model';
+import { TeamInvitation as DBTeamInvitation } from 'src/generated/prisma/client';
+import { TeamMember, TeamAccessRole } from 'src/team/team.model';
 import { TeamService } from 'src/team/team.service';
 import {
   INVALID_EMAIL,
@@ -20,6 +20,7 @@ import { UserService } from 'src/user/user.service';
 import { PubSubService } from 'src/pubsub/pubsub.service';
 import { validateEmail } from '../utils';
 import { AuthUser } from 'src/types/AuthUser';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class TeamInvitationService {
@@ -28,8 +29,8 @@ export class TeamInvitationService {
     private readonly userService: UserService,
     private readonly teamService: TeamService,
     private readonly mailerService: MailerService,
-
     private readonly pubsub: PubSubService,
+    private readonly configService: ConfigService,
   ) {}
 
   /**
@@ -37,10 +38,10 @@ export class TeamInvitationService {
    * @param dbTeamInvitation database TeamInvitation
    * @returns TeamInvitation model
    */
-  cast(dbTeamInvitation: DBTeamInvitation): TeamInvitation {
+  private cast(dbTeamInvitation: DBTeamInvitation): TeamInvitation {
     return {
       ...dbTeamInvitation,
-      inviteeRole: TeamMemberRole[dbTeamInvitation.inviteeRole],
+      inviteeRole: TeamAccessRole[dbTeamInvitation.inviteeRole],
     };
   }
 
@@ -74,12 +75,13 @@ export class TeamInvitationService {
     if (!isEmailValid) return E.left(INVALID_EMAIL);
 
     try {
-      const teamInvite = await this.prisma.teamInvitation.findUniqueOrThrow({
+      const teamInvite = await this.prisma.teamInvitation.findFirstOrThrow({
         where: {
-          teamID_inviteeEmail: {
-            inviteeEmail: inviteeEmail,
-            teamID: teamID,
+          inviteeEmail: {
+            equals: inviteeEmail,
+            mode: 'insensitive',
           },
+          teamID,
         },
       });
 
@@ -101,7 +103,7 @@ export class TeamInvitationService {
     creator: AuthUser,
     teamID: string,
     inviteeEmail: string,
-    inviteeRole: TeamMemberRole,
+    inviteeRole: TeamAccessRole,
   ) {
     // validate email
     const isEmailValid = validateEmail(inviteeEmail);
@@ -150,7 +152,9 @@ export class TeamInvitationService {
       template: 'team-invitation',
       variables: {
         invitee: creator.displayName ?? 'A Hoppscotch User',
-        action_url: `${process.env.VITE_BASE_URL}/join-team?id=${dbInvitation.id}`,
+        action_url: `${this.configService.get('VITE_BASE_URL')}/join-team?id=${
+          dbInvitation.id
+        }`,
         invite_team_name: team.name,
       },
     });

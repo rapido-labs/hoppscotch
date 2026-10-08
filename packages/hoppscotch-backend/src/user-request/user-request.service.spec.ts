@@ -1,7 +1,7 @@
 import {
   ReqType as DbRequestType,
   UserRequest as DbUserRequest,
-} from '@prisma/client';
+} from 'src/generated/prisma/client';
 import { mockDeep, mockReset } from 'jest-mock-extended';
 import {
   JSON_INVALID,
@@ -11,12 +11,9 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PubSubService } from 'src/pubsub/pubsub.service';
 import * as E from 'fp-ts/Either';
-import { GetUserRequestArgs } from './input-type.args';
+import { CreateUserRequestArgs, GetUserRequestArgs } from './input-type.args';
 import { MoveUserRequestArgs } from './input-type.args';
-import {
-  CreateUserRequestArgs,
-  UpdateUserRequestArgs,
-} from './input-type.args';
+import { UpdateUserRequestArgs } from './input-type.args';
 import { UserRequest } from './user-request.model';
 import { UserRequestService } from './user-request.service';
 import { AuthUser } from 'src/types/AuthUser';
@@ -27,10 +24,9 @@ const mockPrisma = mockDeep<PrismaService>();
 const mockPubSub = mockDeep<PubSubService>();
 const mockUserCollectionService = mockDeep<UserCollectionService>();
 
-// @ts-ignore
 const userRequestService = new UserRequestService(
   mockPrisma,
-  mockPubSub as any,
+  mockPubSub,
   mockUserCollectionService,
 );
 
@@ -41,6 +37,8 @@ const user: AuthUser = {
   photoURL: 'https://example.com/photo.png',
   isAdmin: false,
   refreshToken: null,
+  lastLoggedOn: new Date(),
+  lastActiveOn: new Date(),
   createdOn: new Date(),
   currentGQLSession: null,
   currentRESTSession: null,
@@ -53,6 +51,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 1',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -64,6 +63,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 2',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -75,6 +75,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 3',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -86,6 +87,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 4',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -97,6 +99,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 1',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -108,6 +111,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 2',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -119,6 +123,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 3',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -130,6 +135,7 @@ const dbUserRequests: DbUserRequest[] = [
     userUid: user.uid,
     title: 'Request 4',
     request: {},
+    mockExamples: {},
     type: DbRequestType.REST,
     createdOn: new Date(),
     updatedOn: new Date(),
@@ -275,12 +281,10 @@ describe('UserRequestService', () => {
         type: userRequests[0].type,
       };
 
-      mockPrisma.userRequest.count.mockResolvedValue(
-        dbUserRequests[0].orderIndex - 1,
-      );
       mockUserCollectionService.getUserCollection.mockResolvedValue(
         E.right({ type: userRequests[0].type, userUid: user.uid } as any),
       );
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.create.mockResolvedValue(dbUserRequests[0]);
 
       const result = userRequestService.createRequest(
@@ -301,9 +305,10 @@ describe('UserRequestService', () => {
         type: userRequests[0].type,
       };
 
-      mockPrisma.userRequest.count.mockResolvedValue(
-        dbUserRequests[0].orderIndex - 1,
+      mockUserCollectionService.getUserCollection.mockResolvedValue(
+        E.right({ type: userRequests[0].type, userUid: user.uid } as any),
       );
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.create.mockResolvedValue(dbUserRequests[0]);
 
       await userRequestService.createRequest(
@@ -331,10 +336,7 @@ describe('UserRequestService', () => {
         request: userRequests[0].request,
         type: userRequests[0].type,
       };
-
-      mockPrisma.userRequest.count.mockResolvedValue(
-        dbUserRequests[0].orderIndex - 1,
-      );
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.create.mockResolvedValue(dbUserRequests[0]);
 
       await userRequestService.createRequest(
@@ -357,10 +359,7 @@ describe('UserRequestService', () => {
         request: 'invalid json',
         type: userRequests[0].type,
       };
-
-      mockPrisma.userRequest.count.mockResolvedValue(
-        dbUserRequests[0].orderIndex - 1,
-      );
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.create.mockResolvedValue(dbUserRequests[0]);
 
       const result = userRequestService.createRequest(
@@ -380,6 +379,7 @@ describe('UserRequestService', () => {
       const id = userRequests[0].id;
       const type = userRequests[0].type;
       const args: UpdateUserRequestArgs = {
+        id,
         title: userRequests[0].title,
         request: userRequests[0].request,
       };
@@ -402,6 +402,7 @@ describe('UserRequestService', () => {
       const id = userRequests[0].id;
       const type = userRequests[0].type;
       const args: UpdateUserRequestArgs = {
+        id,
         title: userRequests[0].title,
         request: userRequests[0].request,
       };
@@ -421,7 +422,7 @@ describe('UserRequestService', () => {
       expect(mockPrisma.userRequest.update).toHaveBeenCalledWith({
         where: { id },
         data: {
-          ...args,
+          title: args.title,
           request: JSON.parse(args.request),
         },
       });
@@ -430,6 +431,7 @@ describe('UserRequestService', () => {
       const id = userRequests[0].id;
       const type = userRequests[0].type;
       const args: UpdateUserRequestArgs = {
+        id,
         title: userRequests[0].title,
         request: userRequests[0].request,
       };
@@ -455,6 +457,7 @@ describe('UserRequestService', () => {
       const id = userRequests[0].id;
       const type = userRequests[0].type;
       const args: UpdateUserRequestArgs = {
+        id,
         title: userRequests[0].title,
         request: userRequests[0].request,
       };
@@ -475,6 +478,7 @@ describe('UserRequestService', () => {
       const id = userRequests[0].id;
       const type = userRequests[0].type;
       const args: UpdateUserRequestArgs = {
+        id,
         title: userRequests[0].title,
         request: 'invalid json',
       };
@@ -498,7 +502,9 @@ describe('UserRequestService', () => {
     test('Should resolve right and delete user request', () => {
       const id = userRequests[0].id;
 
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.findFirst.mockResolvedValue(dbUserRequests[0]);
+      mockPrisma.userRequest.updateMany.mockResolvedValue(null);
       mockPrisma.userRequest.delete.mockResolvedValue(dbUserRequests[0]);
 
       const result = userRequestService.deleteRequest(id, user);
@@ -508,8 +514,10 @@ describe('UserRequestService', () => {
     test('Should resolve right and perform prisma.delete with correct param', async () => {
       const id = userRequests[0].id;
 
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.findFirst.mockResolvedValue(dbUserRequests[0]);
-      mockPrisma.userRequest.delete.mockResolvedValue(null);
+      mockPrisma.userRequest.updateMany.mockResolvedValue(null);
+      mockPrisma.userRequest.delete.mockResolvedValue(dbUserRequests[0]);
 
       await userRequestService.deleteRequest(id, user);
 
@@ -520,8 +528,10 @@ describe('UserRequestService', () => {
     test('Should resolve right and perform prisma.updateMany with correct param', async () => {
       const id = userRequests[0].id;
 
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.findFirst.mockResolvedValue(dbUserRequests[0]);
-      mockPrisma.userRequest.delete.mockResolvedValue(null);
+      mockPrisma.userRequest.updateMany.mockResolvedValue(null);
+      mockPrisma.userRequest.delete.mockResolvedValue(dbUserRequests[0]);
 
       await userRequestService.deleteRequest(id, user);
 
@@ -536,10 +546,12 @@ describe('UserRequestService', () => {
     test('Should resolve and publish message to pubnub', async () => {
       const id = userRequests[0].id;
 
+      mockPrisma.$transaction.mockImplementation(async (fn) => fn(mockPrisma));
       mockPrisma.userRequest.findFirst.mockResolvedValue(dbUserRequests[0]);
-      mockPrisma.userRequest.delete.mockResolvedValue(null);
+      mockPrisma.userRequest.updateMany.mockResolvedValue(null);
+      mockPrisma.userRequest.delete.mockResolvedValue(dbUserRequests[0]);
 
-      const result = await userRequestService.deleteRequest(id, user);
+      await userRequestService.deleteRequest(id, user);
 
       expect(mockPubSub.publish).toHaveBeenCalledWith(
         `user_request/${dbUserRequests[0].userUid}/deleted`,
@@ -570,7 +582,9 @@ describe('UserRequestService', () => {
       const nextRequest = dbUserRequests[4];
 
       mockPrisma.$transaction.mockRejectedValueOnce(new Error());
-      const result = await userRequestService.reorderRequests(
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      const result = await (userRequestService as any).reorderRequests(
         srcCollID,
         request,
         destCollID,
@@ -591,7 +605,7 @@ describe('UserRequestService', () => {
       };
 
       mockPrisma.$transaction.mockResolvedValueOnce(E.right(updatedReq));
-      const result = await userRequestService.reorderRequests(
+      const result = await (userRequestService as any).reorderRequests(
         srcCollID,
         request,
         destCollID,
@@ -714,7 +728,7 @@ describe('UserRequestService', () => {
           E.right({ request: dbUserRequests[0], nextRequest: null }),
         );
       jest
-        .spyOn(userRequestService, 'reorderRequests')
+        .spyOn(userRequestService as any, 'reorderRequests')
         .mockResolvedValue(E.right(dbUserRequests[0]));
       jest
         .spyOn(userRequestService, 'validateTypeEqualityForMoveRequest')
@@ -744,7 +758,7 @@ describe('UserRequestService', () => {
           E.right({ request: dbUserRequests[0], nextRequest: null }),
         );
       jest
-        .spyOn(userRequestService, 'reorderRequests')
+        .spyOn(userRequestService as any, 'reorderRequests')
         .mockResolvedValue(E.right(dbUserRequests[0]));
       jest
         .spyOn(userRequestService, 'validateTypeEqualityForMoveRequest')
@@ -805,7 +819,7 @@ describe('UserRequestService', () => {
           }),
         );
       jest
-        .spyOn(userRequestService, 'reorderRequests')
+        .spyOn(userRequestService as any, 'reorderRequests')
         .mockResolvedValue(E.left(USER_REQUEST_REORDERING_FAILED));
       jest
         .spyOn(userRequestService, 'validateTypeEqualityForMoveRequest')
@@ -840,6 +854,7 @@ describe('UserRequestService', () => {
         destCollID,
         userRequests[0],
         userRequests[1],
+        user,
       );
 
       expect(result).resolves.toEqualRight(true);

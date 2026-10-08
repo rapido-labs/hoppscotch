@@ -5,8 +5,8 @@ import { PubSubService } from '../pubsub/pubsub.service';
 import * as E from 'fp-ts/Either';
 import * as O from 'fp-ts/Option';
 import {
-  USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS,
-  USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXISTS,
+  USER_ENVIRONMENT_ENV_DOES_NOT_EXIST,
+  USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXIST,
   USER_ENVIRONMENT_GLOBAL_ENV_DELETION_FAILED,
   USER_ENVIRONMENT_GLOBAL_ENV_EXISTS,
   USER_ENVIRONMENT_IS_NOT_GLOBAL,
@@ -14,6 +14,7 @@ import {
   USER_ENVIRONMENT_INVALID_ENVIRONMENT_NAME,
 } from '../errors';
 import { stringToJson } from '../utils';
+import { User } from '../user/user.model';
 
 @Injectable()
 export class UserEnvironmentsService {
@@ -71,7 +72,7 @@ export class UserEnvironmentsService {
       });
     }
 
-    return E.left(USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS);
+    return E.left(USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXIST);
   }
 
   /**
@@ -128,14 +129,20 @@ export class UserEnvironmentsService {
    * @param id environment id
    * @param name environments name
    * @param variables environment variables
+   * @param user User object for authorization
    * @returns an Either of `UserEnvironment` or error
    */
-  async updateUserEnvironment(id: string, name: string, variables: string) {
+  async updateUserEnvironment(
+    id: string,
+    name: string,
+    variables: string,
+    user: User,
+  ) {
     const envVariables = stringToJson(variables);
     if (E.isLeft(envVariables)) return E.left(envVariables.left);
     try {
       const updatedEnvironment = await this.prisma.userEnvironment.update({
-        where: { id: id },
+        where: { id: id, userUid: user.uid },
         data: {
           name: name,
           variables: envVariables.right,
@@ -156,7 +163,7 @@ export class UserEnvironmentsService {
       );
       return E.right(updatedUserEnvironment);
     } catch (e) {
-      return E.left(USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS);
+      return E.left(USER_ENVIRONMENT_ENV_DOES_NOT_EXIST);
     }
   }
 
@@ -179,6 +186,7 @@ export class UserEnvironmentsService {
       const deletedEnvironment = await this.prisma.userEnvironment.delete({
         where: {
           id: id,
+          userUid: uid,
         },
       });
 
@@ -197,7 +205,7 @@ export class UserEnvironmentsService {
       );
       return E.right(true);
     } catch (e) {
-      return E.left(USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS);
+      return E.left(USER_ENVIRONMENT_ENV_DOES_NOT_EXIST);
     }
   }
 
@@ -232,13 +240,13 @@ export class UserEnvironmentsService {
   async clearGlobalEnvironments(uid: string, id: string) {
     const globalEnvExists = await this.checkForExistingGlobalEnv(uid);
     if (O.isNone(globalEnvExists))
-      return E.left(USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXISTS);
+      return E.left(USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXIST);
 
     const env = globalEnvExists.value;
     if (env.id === id) {
       try {
         const updatedEnvironment = await this.prisma.userEnvironment.update({
-          where: { id: id },
+          where: { id: id, userUid: uid },
           data: {
             variables: [],
           },

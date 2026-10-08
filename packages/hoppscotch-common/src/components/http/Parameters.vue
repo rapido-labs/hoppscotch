@@ -1,9 +1,9 @@
 <template>
-  <div class="flex flex-col flex-1">
+  <div class="flex flex-1 flex-col">
     <div
-      class="sticky z-10 flex items-center justify-between flex-shrink-0 pl-4 overflow-x-auto border-b bg-primary border-dividerLight top-upperMobileSecondaryStickyFold sm:top-upperSecondaryStickyFold"
+      class="sticky top-upperMobileSecondaryStickyFold z-10 flex flex-shrink-0 items-center justify-between overflow-x-auto border-b border-dividerLight bg-primary pl-4 sm:top-upperSecondaryStickyFold"
     >
-      <label class="font-semibold truncate text-secondaryLight">
+      <label class="truncate font-semibold text-secondaryLight">
         {{ t("request.parameter_list") }}
       </label>
       <div class="flex">
@@ -24,9 +24,9 @@
           v-if="bulkMode"
           v-tippy="{ theme: 'tooltip' }"
           :title="t('state.linewrap')"
-          :class="{ '!text-accent': linewrapEnabled }"
+          :class="{ '!text-accent': WRAP_LINES }"
           :icon="IconWrapText"
-          @click.prevent="linewrapEnabled = !linewrapEnabled"
+          @click.prevent="toggleNestedSetting('WRAP_LINES', 'httpParams')"
         />
         <HoppButtonSecondary
           v-tippy="{ theme: 'tooltip' }"
@@ -44,7 +44,9 @@
         />
       </div>
     </div>
-    <div v-if="bulkMode" ref="bulkEditor" class="flex flex-col flex-1"></div>
+    <div v-if="bulkMode" class="h-full relative flex flex-col flex-1">
+      <div ref="bulkEditor" class="absolute inset-0"></div>
+    </div>
     <div v-else>
       <draggable
         v-model="workingParams"
@@ -55,100 +57,31 @@
         ghost-class="cursor-move"
         chosen-class="bg-primaryLight"
         drag-class="cursor-grabbing"
+        :move="
+          (event: DragDropEvent) =>
+            isDragDropAllowed(event, workingParams.length)
+        "
       >
         <template #item="{ element: param, index }">
-          <div
-            class="flex border-b divide-x divide-dividerLight border-dividerLight draggable-content group"
-          >
-            <span>
-              <HoppButtonSecondary
-                v-tippy="{
-                  theme: 'tooltip',
-                  delay: [500, 20],
-                  content:
-                    index !== workingParams?.length - 1
-                      ? t('action.drag_to_reorder')
-                      : null,
-                }"
-                :icon="IconGripVertical"
-                class="cursor-auto text-primary hover:text-primary"
-                :class="{
-                  'draggable-handle group-hover:text-secondaryLight !cursor-grab':
-                    index !== workingParams?.length - 1,
-                }"
-                tabindex="-1"
-              />
-            </span>
-            <SmartEnvInput
-              v-model="param.key"
-              :placeholder="`${t('count.parameter', { count: index + 1 })}`"
-              :inspection-results="
-                getInspectorResult(parameterKeyResults, index)
-              "
-              @change="
-                updateParam(index, {
-                  id: param.id,
-                  key: $event,
-                  value: param.value,
-                  active: param.active,
-                })
-              "
-            />
-            <SmartEnvInput
-              v-model="param.value"
-              :placeholder="`${t('count.value', { count: index + 1 })}`"
-              :inspection-results="
-                getInspectorResult(parameterValueResults, index)
-              "
-              @change="
-                updateParam(index, {
-                  id: param.id,
-                  key: param.key,
-                  value: $event,
-                  active: param.active,
-                })
-              "
-            />
-            <span>
-              <HoppButtonSecondary
-                v-tippy="{ theme: 'tooltip' }"
-                :title="
-                  param.hasOwnProperty('active')
-                    ? param.active
-                      ? t('action.turn_off')
-                      : t('action.turn_on')
-                    : t('action.turn_off')
-                "
-                :icon="
-                  param.hasOwnProperty('active')
-                    ? param.active
-                      ? IconCheckCircle
-                      : IconCircle
-                    : IconCheckCircle
-                "
-                color="green"
-                @click="
-                  updateParam(index, {
-                    id: param.id,
-                    key: param.key,
-                    value: param.value,
-                    active: param.hasOwnProperty('active')
-                      ? !param.active
-                      : false,
-                  })
-                "
-              />
-            </span>
-            <span>
-              <HoppButtonSecondary
-                v-tippy="{ theme: 'tooltip' }"
-                :title="t('action.remove')"
-                :icon="IconTrash"
-                color="red"
-                @click="deleteParam(index)"
-              />
-            </span>
-          </div>
+          <HttpKeyValue
+            v-model:name="param.key"
+            v-model:value="param.value"
+            v-model:description="param.description"
+            :total="workingParams.length"
+            :index="index"
+            :entity-id="param.id"
+            :entity-active="param.active"
+            :envs="envs"
+            :is-active="param.hasOwnProperty('active')"
+            :inspection-key-result="
+              getInspectorResult(parameterKeyResults, index)
+            "
+            :inspection-value-result="
+              getInspectorResult(parameterValueResults, index)
+            "
+            @update-entity="updateParam($event.index, $event.payload)"
+            @delete-entity="deleteParam($event)"
+          />
         </template>
       </draggable>
       <HoppSmartPlaceholder
@@ -157,12 +90,14 @@
         :alt="`${t('empty.parameters')}`"
         :text="t('empty.parameters')"
       >
-        <HoppButtonSecondary
-          :label="`${t('add.new')}`"
-          :icon="IconPlus"
-          filled
-          @click="addParam"
-        />
+        <template #body>
+          <HoppButtonSecondary
+            :label="`${t('add.new')}`"
+            :icon="IconPlus"
+            filled
+            @click="addParam"
+          />
+        </template>
       </HoppSmartPlaceholder>
     </div>
   </div>
@@ -173,12 +108,8 @@ import IconHelpCircle from "~icons/lucide/help-circle"
 import IconTrash2 from "~icons/lucide/trash-2"
 import IconEdit from "~icons/lucide/edit"
 import IconPlus from "~icons/lucide/plus"
-import IconGripVertical from "~icons/lucide/grip-vertical"
-import IconCheckCircle from "~icons/lucide/check-circle"
-import IconCircle from "~icons/lucide/circle"
-import IconTrash from "~icons/lucide/trash"
 import IconWrapText from "~icons/lucide/wrap-text"
-import { reactive, ref, watch } from "vue"
+import { reactive, ref, watch, computed } from "vue"
 import { flow, pipe } from "fp-ts/function"
 import * as O from "fp-ts/Option"
 import * as A from "fp-ts/Array"
@@ -193,6 +124,7 @@ import {
 import { isEqual, cloneDeep } from "lodash-es"
 import draggable from "vuedraggable-es"
 import linter from "~/helpers/editor/linting/rawKeyValue"
+import { isDragDropAllowed, DragDropEvent } from "~/helpers/dragDropValidation"
 import { useCodemirror } from "@composables/codemirror"
 import { useColorMode } from "@composables/theming"
 import { useI18n } from "@composables/i18n"
@@ -202,22 +134,33 @@ import { objRemoveKey } from "@functional/object"
 import { useVModel } from "@vueuse/core"
 import { useService } from "dioc/vue"
 import { InspectionService, InspectorResult } from "~/services/inspection"
-import { RESTTabService } from "~/services/tab/rest"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
+import { useNestedSetting } from "~/composables/settings"
+import { toggleNestedSetting } from "~/newstore/settings"
+import { AggregateEnvironment } from "~/newstore/environments"
 
 const colorMode = useColorMode()
 
 const t = useI18n()
 const toast = useToast()
-const tabs = useService(RESTTabService)
+const tabs = useService(WorkspaceTabsService)
 
 const idTicker = ref(0)
 
 const bulkMode = ref(false)
 const bulkParams = ref("")
 const bulkEditor = ref<any | null>(null)
-const linewrapEnabled = ref(true)
+const WRAP_LINES = useNestedSetting("WRAP_LINES", "httpParams")
 
 const deletionToast = ref<{ goAway: (delay: number) => void } | null>(null)
+
+// Declared before `useCodemirror` — its options read props at setup
+const props = defineProps<{
+  modelValue: HoppRESTParam[]
+  envs?: AggregateEnvironment[]
+  // Embed-only codemirror scope — `envs` alone must keep workspace editors live
+  scopedEnvs?: AggregateEnvironment[]
+}>()
 
 useCodemirror(
   bulkEditor,
@@ -226,17 +169,15 @@ useCodemirror(
     extendedEditorConfig: {
       mode: "text/x-yaml",
       placeholder: `${t("state.bulk_mode_placeholder")}`,
-      lineWrapping: linewrapEnabled,
+      lineWrapping: WRAP_LINES,
     },
     linter,
     completer: null,
     environmentHighlights: true,
+    envs: computed(() => props.scopedEnvs),
+    predefinedVariablesHighlights: true,
   })
 )
-
-const props = defineProps<{
-  modelValue: HoppRESTParam[]
-}>()
 
 const emit = defineEmits<{
   (e: "update:modelValue", value: Array<HoppRESTParam>): void
@@ -252,6 +193,7 @@ const workingParams = ref<Array<HoppRESTParam & { id: number }>>([
     key: "",
     value: "",
     active: true,
+    description: "",
   },
 ])
 
@@ -263,6 +205,7 @@ watch(workingParams, (paramsList) => {
       key: "",
       value: "",
       active: true,
+      description: "",
     })
   }
 })
@@ -300,8 +243,16 @@ watch(
       )
     }
 
-    if (!isEqual(newParamsList, filteredBulkParams)) {
-      bulkParams.value = rawKeyValueEntriesToString(newParamsList)
+    const newParamsListKeyValuePairs = newParamsList.map(
+      ({ key, value, active }) => ({
+        key,
+        value,
+        active,
+      })
+    )
+
+    if (!isEqual(newParamsListKeyValuePairs, filteredBulkParams)) {
+      bulkParams.value = rawKeyValueEntriesToString(newParamsListKeyValuePairs)
     }
   },
   { immediate: true }
@@ -335,8 +286,18 @@ watch(bulkParams, (newBulkParams) => {
     E.getOrElse(() => [] as RawKeyValueEntry[])
   )
 
-  if (!isEqual(params.value, filteredBulkParams)) {
-    params.value = filteredBulkParams
+  const paramKeyValuePairs = params.value.map(({ key, value, active }) => ({
+    key,
+    value,
+    active,
+  }))
+
+  if (!isEqual(paramKeyValuePairs, filteredBulkParams)) {
+    params.value = filteredBulkParams.map((param, idx) => ({
+      ...param,
+      // Adding a new key-value pair in the bulk edit context won't have a corresponding entry under `params.value`, hence the fallback
+      description: params.value[idx]?.description ?? "",
+    }))
   }
 })
 
@@ -346,6 +307,7 @@ const addParam = () => {
     key: "",
     value: "",
     active: true,
+    description: "",
   })
 }
 
@@ -358,12 +320,9 @@ const updateParam = (index: number, param: HoppRESTParam & { id: number }) => {
 const deleteParam = (index: number) => {
   const paramsBeforeDeletion = cloneDeep(workingParams.value)
 
-  if (
-    !(
-      paramsBeforeDeletion.length > 0 &&
-      index === paramsBeforeDeletion.length - 1
-    )
-  ) {
+  if (!(
+    paramsBeforeDeletion.length > 0 && index === paramsBeforeDeletion.length - 1
+  )) {
     if (deletionToast.value) {
       deletionToast.value.goAway(0)
       deletionToast.value = null
@@ -402,6 +361,7 @@ const clearContent = () => {
       key: "",
       value: "",
       active: true,
+      description: "",
     },
   ]
 
@@ -425,7 +385,11 @@ const parameterValueResults = inspectionService.getResultViewFor(
 
 const getInspectorResult = (results: InspectorResult[], index: number) => {
   return results.filter((result) => {
-    if (result.locations.type === "url" || result.locations.type === "response")
+    if (
+      result.locations.type === "url" ||
+      result.locations.type === "response" ||
+      result.locations.type === "body-content-type-header"
+    )
       return
     return result.locations.index === index
   })

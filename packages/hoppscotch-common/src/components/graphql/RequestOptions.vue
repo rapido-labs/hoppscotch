@@ -1,84 +1,96 @@
 <template>
-  <div class="flex flex-col flex-1 h-full">
-    <HoppSmartTabs
-      v-model="selectedOptionTab"
-      styles="sticky top-0 bg-primary z-10 border-b-0"
-      :render-inactive-tabs="true"
+  <HoppSmartTabs
+    v-model="selectedOptionTab"
+    styles="sticky bg-primary top-0 z-10 border-b-0"
+    :render-inactive-tabs="true"
+  >
+    <HoppSmartTab
+      :id="'query'"
+      :label="`${t('tab.query')}`"
+      :indicator="request.query && request.query.length > 0 ? true : false"
     >
-      <HoppSmartTab
-        :id="'query'"
-        :label="`${t('tab.query')}`"
-        :indicator="request.query && request.query.length > 0 ? true : false"
-      >
-        <GraphqlQuery
-          v-model="request.query"
-          @run-query="runQuery"
-          @save-request="saveRequest"
-        />
-      </HoppSmartTab>
-      <HoppSmartTab
-        :id="'variables'"
-        :label="`${t('tab.variables')}`"
-        :indicator="
-          request.variables && request.variables.length > 0 ? true : false
-        "
-      >
-        <GraphqlVariable
-          v-model="request.variables"
-          @run-query="runQuery"
-          @save-request="saveRequest"
-        />
-      </HoppSmartTab>
-      <HoppSmartTab
-        :id="'headers'"
-        :label="`${t('tab.headers')}`"
-        :info="activeGQLHeadersCount === 0 ? null : `${activeGQLHeadersCount}`"
-      >
-        <GraphqlHeaders v-model="request" />
-      </HoppSmartTab>
-      <HoppSmartTab :id="'authorization'" :label="`${t('tab.authorization')}`">
-        <GraphqlAuthorization v-model="request.auth" />
-      </HoppSmartTab>
-    </HoppSmartTabs>
-    <CollectionsSaveRequest
-      mode="graphql"
-      :show="showSaveRequestModal"
-      @hide-modal="hideRequestModal"
-    />
-  </div>
+      <GraphqlQuery
+        v-model="request.query"
+        @run-query="runQuery"
+        @save-request="saveRequest"
+        @cursor-position="updateCursorPos"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab
+      :id="'variables'"
+      :label="`${t('tab.variables')}`"
+      :indicator="
+        request.variables && request.variables.length > 0 ? true : false
+      "
+    >
+      <GraphqlVariable
+        v-model="request.variables"
+        @run-query="runQuery"
+        @save-request="saveRequest"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab
+      :id="'headers'"
+      :label="`${t('tab.headers')}`"
+      :info="activeGQLHeadersCount === 0 ? null : `${activeGQLHeadersCount}`"
+    >
+      <GraphqlHeaders
+        v-model="request"
+        :inherited-properties="inheritedProperties"
+        @change-tab="changeOptionTab"
+      />
+    </HoppSmartTab>
+    <HoppSmartTab :id="'authorization'" :label="`${t('tab.authorization')}`">
+      <GraphqlAuthorization
+        v-model="request.auth"
+        :inherited-properties="inheritedProperties"
+      />
+    </HoppSmartTab>
+  </HoppSmartTabs>
+  <CollectionsSaveRequest
+    mode="legacy-graphql"
+    :show="showSaveRequestModal"
+    @hide-modal="hideRequestModal"
+  />
 </template>
 
 <script setup lang="ts">
 import { useI18n } from "@composables/i18n"
 import { useToast } from "@composables/toast"
-import { completePageProgress, startPageProgress } from "@modules/loadingbar"
+import { HoppGQLAuth, HoppGQLRequest } from "@hoppscotch/data"
+import { computedWithControl, useVModel } from "@vueuse/core"
+import { useService } from "dioc/vue"
 import * as gql from "graphql"
 import { clone } from "lodash-es"
 import { computed, ref, watch } from "vue"
 import { defineActionHandler } from "~/helpers/actions"
-import { HoppGQLRequest } from "@hoppscotch/data"
-import { platform } from "~/platform"
-import { computedWithControl, useVModel } from "@vueuse/core"
 import {
+  connection,
+  gqlMessageEvent,
   GQLResponseEvent,
   runGQLOperation,
-  gqlMessageEvent,
 } from "~/helpers/graphql/connection"
-import { useService } from "dioc/vue"
-import { InterceptorService } from "~/services/interceptor.service"
+import { HoppInheritedProperty } from "~/helpers/types/HoppInheritedProperties"
+import { completePageProgress, startPageProgress } from "~/modules/loadingbar"
 import { editGraphqlRequest } from "~/newstore/collections"
+import { platform } from "~/platform"
+import { KernelInterceptorService } from "~/services/kernel-interceptor.service"
 import { GQLTabService } from "~/services/tab/graphql"
 
-const VALID_GQL_OPERATIONS = [
+const _VALID_GQL_OPERATIONS = [
   "query",
   "headers",
   "variables",
   "authorization",
+  // Script tabs exist only on the unified workspace's gql/RequestOptions —
+  // this legacy page doesn't render them, but it owns the GQLOptionTabs type
+  "preRequestScript",
+  "tests",
 ] as const
 
-export type GQLOptionTabs = (typeof VALID_GQL_OPERATIONS)[number]
+export type GQLOptionTabs = (typeof _VALID_GQL_OPERATIONS)[number]
 
-const interceptorService = useService(InterceptorService)
+const interceptorService = useService(KernelInterceptorService)
 
 const t = useI18n()
 const toast = useToast()
@@ -92,24 +104,22 @@ const props = withDefaults(
     response?: GQLResponseEvent[] | null
     optionTab?: GQLOptionTabs
     tabId: string
+    inheritedProperties?: HoppInheritedProperty
   }>(),
   {
     response: null,
     optionTab: "query",
   }
 )
-const emit = defineEmits(["update:modelValue", "update:response"])
+const emit = defineEmits<{
+  (e: "update:modelValue", value: HoppGQLRequest): void
+  (e: "update:optionTab", value: GQLOptionTabs): void
+  (e: "update:response", value: GQLResponseEvent[]): void
+}>()
+
 const selectedOptionTab = useVModel(props, "optionTab", emit)
 
-const request = ref(props.modelValue)
-
-watch(
-  () => request.value,
-  (newVal) => {
-    emit("update:modelValue", newVal)
-  },
-  { deep: true }
-)
+const request = useVModel(props, "modelValue", emit)
 
 const url = computedWithControl(
   () => tabs.currentActiveTab.value,
@@ -130,18 +140,23 @@ const runQuery = async (
   startPageProgress()
   try {
     const runURL = clone(url.value)
-    const runHeaders = clone(request.value.headers)
     const runQuery = clone(request.value.query)
     const runVariables = clone(request.value.variables)
-    const runAuth = clone(request.value.auth)
+
+    const inheritedHeaders =
+      tabs.currentActiveTab.value.document.inheritedProperties?.headers.map(
+        (header) => header.inheritedHeader
+      ) ?? []
 
     await runGQLOperation({
       name: request.value.name,
       url: runURL,
-      headers: runHeaders,
+      request: request.value,
+      inheritedHeaders,
+      inheritedAuth: tabs.currentActiveTab.value.document.inheritedProperties
+        ?.auth.inheritedAuth as HoppGQLAuth | undefined,
       query: runQuery,
       variables: runVariables,
-      auth: runAuth,
       operationName: definition?.name?.value,
       operationType: definition?.operation ?? "query",
     })
@@ -152,19 +167,13 @@ const runQuery = async (
       toast.success(t("authorization.graphql_headers"))
     }
   } catch (e: any) {
-    console.log(e)
-    // response.value = [`${e}`]
     completePageProgress()
-    toast.error(
-      `${t("error.something_went_wrong")}. ${t("error.check_console_details")}`,
-      {}
-    )
     console.error(e)
   }
   platform.analytics?.logEvent({
     type: "HOPP_REQUEST_RUN",
     platform: "graphql-query",
-    strategy: interceptorService.currentInterceptorID.value!,
+    strategy: interceptorService.current.value!.id,
   })
 }
 
@@ -177,7 +186,10 @@ watch(
     }
 
     try {
-      if (event?.operationType !== "subscription") {
+      if (
+        event?.type === "response" &&
+        event?.operationType !== "subscription"
+      ) {
         // response.value = [event]
         emit("update:response", [event])
       } else {
@@ -191,6 +203,33 @@ watch(
   },
   { deep: true }
 )
+
+watch(
+  () => connection,
+  (newVal) => {
+    if (
+      newVal.error &&
+      (newVal.state === "DISCONNECTED" || newVal.state === "ERROR")
+    ) {
+      const response = [
+        {
+          type: "error",
+          error: {
+            message: newVal.error.message(t),
+            type: newVal.error.type,
+            component: newVal.error.component,
+          },
+        },
+      ]
+      emit("update:response", response)
+    }
+  },
+  { deep: true }
+)
+
+const updateCursorPos = (pos: number) => {
+  tabs.currentActiveTab.value.document.cursorPosition = pos
+}
 
 const hideRequestModal = () => {
   showSaveRequestModal.value = false
@@ -215,8 +254,13 @@ const saveRequest = () => {
 const clearGQLQuery = () => {
   request.value.query = ""
 }
+
+const changeOptionTab = (e: GQLOptionTabs) => {
+  selectedOptionTab.value = e
+}
+
 defineActionHandler("request.send-cancel", runQuery)
-defineActionHandler("request.save", saveRequest)
+defineActionHandler("request-response.save", saveRequest)
 defineActionHandler("request.save-as", () => {
   showSaveRequestModal.value = true
 })

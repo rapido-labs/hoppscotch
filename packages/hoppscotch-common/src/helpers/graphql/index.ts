@@ -4,18 +4,6 @@ import * as N from "fp-ts/number"
 import * as S from "fp-ts/string"
 import { lodashIsEqualEq, mapThenEq, undefinedEq } from "./eq"
 
-export type HoppGQLParam = {
-  key: string
-  value: string
-  active: boolean
-}
-
-export type HoppGQLHeader = {
-  key: string
-  value: string
-  active: boolean
-}
-
 export type FormDataKeyValue = {
   key: string
   active: boolean
@@ -49,6 +37,11 @@ export const HoppGQLRequestEq = Eq.struct<HoppGQLRequest>({
   query: S.Eq,
   variables: S.Eq,
   auth: lodashIsEqualEq,
+  responses: lodashIsEqualEq,
+  preRequestScript: S.Eq,
+  testScript: S.Eq,
+  _ref_id: undefinedEq(S.Eq),
+  description: lodashIsEqualEq,
 })
 
 export const isEqualHoppGQLRequest = HoppGQLRequestEq.equals

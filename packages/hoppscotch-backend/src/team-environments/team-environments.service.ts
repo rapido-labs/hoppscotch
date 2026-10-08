@@ -1,22 +1,28 @@
 import { Injectable } from '@nestjs/common';
-import { TeamEnvironment as DBTeamEnvironment, Prisma } from '@prisma/client';
+import {
+  TeamEnvironment as DBTeamEnvironment,
+  Prisma,
+} from 'src/generated/prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { PubSubService } from 'src/pubsub/pubsub.service';
 import { TeamEnvironment } from './team-environments.model';
 import {
   TEAM_ENVIRONMENT_NOT_FOUND,
   TEAM_ENVIRONMENT_SHORT_NAME,
+  TEAM_MEMBER_NOT_FOUND,
 } from 'src/errors';
 import * as E from 'fp-ts/Either';
 import { isValidLength } from 'src/utils';
+import { TeamService } from 'src/team/team.service';
 @Injectable()
 export class TeamEnvironmentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly pubsub: PubSubService,
+    private readonly teamService: TeamService,
   ) {}
 
-  TITLE_LENGTH = 3;
+  TITLE_LENGTH = 1;
 
   /**
    * TeamEnvironments are saved in the DB in the following way
@@ -30,10 +36,11 @@ export class TeamEnvironmentsService {
    * @returns TeamEnvironment model
    */
   private cast(teamEnvironment: DBTeamEnvironment): TeamEnvironment {
+    const { id, name, teamID } = teamEnvironment;
     return {
-      id: teamEnvironment.id,
-      name: teamEnvironment.name,
-      teamID: teamEnvironment.teamID,
+      id,
+      name,
+      teamID,
       variables: JSON.stringify(teamEnvironment.variables),
     };
   }
@@ -70,8 +77,8 @@ export class TeamEnvironmentsService {
 
     const result = await this.prisma.teamEnvironment.create({
       data: {
-        name: name,
-        teamID: teamID,
+        name,
+        teamID,
         variables: JSON.parse(variables),
       },
     });
@@ -96,7 +103,7 @@ export class TeamEnvironmentsService {
     try {
       const result = await this.prisma.teamEnvironment.delete({
         where: {
-          id: id,
+          id,
         },
       });
 
@@ -127,7 +134,7 @@ export class TeamEnvironmentsService {
       if (!isTitleValid) return E.left(TEAM_ENVIRONMENT_SHORT_NAME);
 
       const result = await this.prisma.teamEnvironment.update({
-        where: { id: id },
+        where: { id },
         data: {
           name,
           variables: JSON.parse(variables),
@@ -191,7 +198,7 @@ export class TeamEnvironmentsService {
 
       const result = await this.prisma.teamEnvironment.create({
         data: {
-          name: environment.name,
+          name: `${environment.name} - Duplicate`,
           teamID: environment.teamID,
           variables: environment.variables as Prisma.JsonArray,
         },
@@ -241,5 +248,31 @@ export class TeamEnvironmentsService {
       },
     });
     return envCount;
+  }
+
+  /**
+   * Get details of a TeamEnvironment for CLI.
+   *
+   * @param id TeamEnvironment ID
+   * @param userUid User UID
+   * @returns Either of a TeamEnvironment or error message
+   */
+  async getTeamEnvironmentForCLI(id: string, userUid: string) {
+    try {
+      const teamEnvironment =
+        await this.prisma.teamEnvironment.findFirstOrThrow({
+          where: { id },
+        });
+
+      const teamMember = await this.teamService.getTeamMember(
+        teamEnvironment.teamID,
+        userUid,
+      );
+      if (!teamMember) return E.left(TEAM_MEMBER_NOT_FOUND);
+
+      return E.right(teamEnvironment);
+    } catch (error) {
+      return E.left(TEAM_ENVIRONMENT_NOT_FOUND);
+    }
   }
 }

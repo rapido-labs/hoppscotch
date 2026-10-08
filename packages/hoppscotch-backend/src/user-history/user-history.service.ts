@@ -6,6 +6,7 @@ import { ReqType } from 'src/types/RequestTypes';
 import * as E from 'fp-ts/Either';
 import * as O from 'fp-ts/Option';
 import {
+  USER_HISTORY_DELETION_FAILED,
   USER_HISTORY_INVALID_REQ_TYPE,
   USER_HISTORY_NOT_FOUND,
 } from '../errors';
@@ -98,7 +99,7 @@ export class UserHistoryService {
    * @returns an Either of updated `UserHistory` or Error
    */
   async toggleHistoryStarStatus(uid: string, id: string) {
-    const userHistory = await this.fetchUserHistoryByID(id);
+    const userHistory = await this.fetchUserHistoryByID(id, uid);
     if (O.isNone(userHistory)) {
       return E.left(USER_HISTORY_NOT_FOUND);
     }
@@ -107,6 +108,7 @@ export class UserHistoryService {
       const updatedHistory = await this.prisma.userHistory.update({
         where: {
           id: id,
+          userUid: uid,
         },
         data: {
           isStarred: !userHistory.value.isStarred,
@@ -141,6 +143,7 @@ export class UserHistoryService {
       const delUserHistory = await this.prisma.userHistory.delete({
         where: {
           id: id,
+          userUid: uid,
         },
       });
 
@@ -189,14 +192,31 @@ export class UserHistoryService {
   }
 
   /**
-   * Fetch a user history based on history ID.
-   * @param id User History ID
-   * @returns an `UserHistory` object
+   * Delete all user history from DB
+   * @returns a boolean
    */
-  async fetchUserHistoryByID(id: string) {
+  async deleteAllHistories() {
+    try {
+      await this.prisma.userHistory.deleteMany();
+    } catch (error) {
+      return E.left(USER_HISTORY_DELETION_FAILED);
+    }
+
+    this.pubsub.publish('user_history/all/deleted', true);
+    return E.right(true);
+  }
+
+  /**
+   * Fetch a user history based on history ID, scoped to its owner.
+   * @param id User History ID
+   * @param uid UID of the user the history entry must belong to
+   * @returns an `UserHistory` object owned by the given user, or `O.none`
+   */
+  async fetchUserHistoryByID(id: string, uid: string) {
     const userHistory = await this.prisma.userHistory.findFirst({
       where: {
         id: id,
+        userUid: uid,
       },
     });
     if (userHistory == null) return O.none;

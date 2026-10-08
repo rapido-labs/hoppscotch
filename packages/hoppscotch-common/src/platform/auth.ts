@@ -2,6 +2,9 @@ import { ClientOptions } from "@urql/core"
 import { Observable } from "rxjs"
 import { Component } from "vue"
 import { getI18n } from "~/modules/i18n"
+import * as E from "fp-ts/Either"
+import { AxiosRequestConfig } from "axios"
+import { GQLError } from "~/helpers/backend/GQLClient"
 
 /**
  * A common (and required) set of fields that describe a user.
@@ -21,7 +24,7 @@ export type HoppUser = {
 
   // Regarding `provider` and `accessToken`:
   // The current implementation and use case for these 2 fields are super weird due to legacy.
-  // Currrently these fields are only basically populated for Github Auth as we need the access token issued
+  // Currently these fields are only basically populated for Github Auth as we need the access token issued
   // by it to implement Gist submission. I would really love refactor to make this thing more sane.
 
   /** Name of the provider authenticating (NOTE: See notes on `platform/auth.ts`) */
@@ -35,11 +38,19 @@ export type AuthEvent =
   | { event: "probable_login"; user: HoppUser } // We have previous login state, but the app is waiting for authentication
   | { event: "login"; user: HoppUser } // We are authenticated
   | { event: "logout" } // No authentication and we have no previous state
+  | { event: "token_refresh"; user: HoppUser } // We have refreshed our tokens and have new ones now
 
 export type GithubSignInResult =
   | { type: "success"; user: HoppUser } // The authentication was a success
   | { type: "account-exists-with-different-cred"; link: () => Promise<void> } // We authenticated correctly, but the provider didn't match, so we give the user the opportunity to link to continue completing auth
   | { type: "error"; err: unknown } // Auth failed completely and we don't know why
+
+export type SetEmailAddressResult =
+  | { type: "success" } // The email address was set successfully
+  | { type: "email-already-in-use" } // The email address is already in use by another account
+  | { type: "requires-recent-login"; link: () => Promise<void> } // The user needs to re-authenticate to set the email address
+  | { type: "no-user-logged-in" } // No user is currently logged in, so we can't set the email address
+  | { type: "error"; err: unknown } // An error occurred while setting the email address
 
 export type LoginItemDef = {
   id: string
@@ -49,6 +60,13 @@ export type LoginItemDef = {
 }
 
 export type AuthPlatformDef = {
+  /**
+   * Whether this platform shows a custom login selector UI. Used for situations
+   * where we don't want to render the traditional UI and want to replace it
+   * with something else
+   */
+  customLoginSelectorUI?: Component
+
   /**
    * Returns an observable that emits the current user as per the auth implementation.
    *
@@ -98,7 +116,7 @@ export type AuthPlatformDef = {
    * Called by Common when it is time to perform initialization activities for authentication.
    * (This is the best place to do init work for the auth subsystem in the platform).
    */
-  performAuthInit: () => void
+  performAuthInit: () => Promise<void>
 
   /**
    * Returns the headers that should be applied by the backend GQL API client (see GQLClient)
@@ -106,6 +124,17 @@ export type AuthPlatformDef = {
    * @returns An object with the header key and header values as strings
    */
   getBackendHeaders: () => Record<string, string>
+
+  /**
+   * Resolves once any org-scoped context required by `getBackendHeaders` (e.g.
+   * the `x-organization-id` header) has settled. On org subdomains this waits
+   * for the org info lookup to succeed or fail before letting backend calls
+   * proceed, so requests don't go out with a missing org id on reload.
+   *
+   * Returns immediately when not in an org context or when the info is already
+   * determined. May be absent on platforms that don't scope backend calls by org.
+   */
+  waitOrganizationInfoReady?: () => Promise<void>
 
   /**
    * Called when the backend GQL API client encounters an auth error to check if with the
@@ -133,6 +162,16 @@ export type AuthPlatformDef = {
    * @returns
    */
   getGQLClientOptions?: () => Partial<ClientOptions>
+
+  /**
+   * called by the platform to provide additional/different config options when
+   * sending requests with axios
+   * eg: SH needs to include cookies in the request, while Central doesn't and throws a cors error if it does
+   * Ensure to invoke `platform.auth.waitProbableLoginToConfirm()` before accessing
+   *
+   * @returns AxiosRequestConfig
+   */
+  axiosPlatformConfig?: () => AxiosRequestConfig
 
   /**
    * Returns the string content that should be returned when the user selects to
@@ -210,20 +249,54 @@ export type AuthPlatformDef = {
 
   /**
    * Updates the email address of the user
+   *
+   * NOTES:
+   * 1. This will return an error if the email is already in use by another account
+   * 2. This will return an error if the user needs to re-authenticate
+   * 3. This will return undefined if no user is logged in, so check for that before calling this
+   *
    * @param email The new email to set this to.
-   * @returns An empty promise that is resolved when the operation is complete
+   * @returns A promise that resolves with the email update status when the operation is complete
    */
-  setEmailAddress: (email: string) => Promise<void>
+  setEmailAddress: (
+    email: string
+  ) => Promise<SetEmailAddressResult> | Promise<void>
 
   /**
    * Updates the display name of the user
    * @param name The new name to set this to.
-   * @returns An empty promise that is resolved when the operation is complete
+   * @returns A promise that resolves with the display name update status when the operation is complete
    */
-  setDisplayName: (name: string) => Promise<void>
+  setDisplayName: (
+    name: string
+  ) => Promise<E.Either<GQLError<string>, undefined>>
+
+  /**
+   * Returns the list of allowed auth providers for the platform ( the currently supported ones are GOOGLE, GITHUB, EMAIL, MICROSOFT, SAML )
+   */
+  getAllowedAuthProviders: () => Promise<E.Either<string, string[]>>
 
   /**
    * Defines the additional login items that should be shown in the login screen
    */
   additionalLoginItems?: LoginItemDef[]
+
+  /**
+   * Whether the email address is editable by the user or not.
+   * This is used to determine whether the email address field should disabled in the user settings.
+   * If a value is not given, then the value is assumed to be false.
+   */
+  isEmailEditable?: boolean
+
+  /** Verifies if the current user's authentication tokens are valid
+   * For self-hosted, this should verify the tokens with the backend
+   * @returns True if tokens are valid, false otherwise
+   */
+  verifyAuthTokens?: () => Promise<boolean>
+
+  /** Refreshes the authentication tokens for the current user
+   * For self-hosted, this should refresh the tokens with the backend
+   * @returns True if tokens were refreshed successfully, false otherwise
+   */
+  refreshAuthToken?: () => Promise<boolean>
 }

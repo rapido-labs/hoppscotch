@@ -1,6 +1,12 @@
 import * as TE from "fp-ts/TaskEither"
 import type { Component } from "vue"
 import { StepsOutputList } from "../steps"
+import {
+  HoppCollection,
+  generateUniqueRefId,
+  makeCollection,
+  translateToNewCollection,
+} from "@hoppscotch/data"
 
 /**
  * A common error state to be used when the file formats are not expected
@@ -66,4 +72,33 @@ export const defineImporter = <ReturnType, StepType, Errors>(input: {
   return <HoppImporterDefinition<ReturnType, StepType, Errors>>{
     ...input,
   }
+}
+
+/**
+ * Sanitize collection for import, removes old id and ref_id from collection and folders, and transforms it to
+ * new collection format with a newly generated ref_id.
+ * @param collection The collection to sanitize
+ * @returns The sanitized collection with new ref_id
+ */
+export const sanitizeCollection = (
+  collection: HoppCollection
+): HoppCollection => {
+  const {
+    id: _id,
+    _ref_id: _refId,
+    v: _v,
+    ...rest
+  } = translateToNewCollection(collection)
+
+  return makeCollection({
+    ...rest,
+    // Requests carry identity too — an imported file may hold `_ref_id`/`id`
+    // values that already exist in the workspace, and matching treats equal
+    // identities as the same request
+    requests: rest.requests.map((request) => {
+      const { id: _requestId, ...requestRest } = request
+      return { ...requestRest, _ref_id: generateUniqueRefId("req") }
+    }),
+    folders: rest.folders.map(sanitizeCollection),
+  })
 }

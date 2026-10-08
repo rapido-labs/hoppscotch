@@ -27,6 +27,13 @@ import { UserRequestUserCollectionResolver } from './user-request/resolvers/user
 import { UserEnvsUserResolver } from './user-environment/user.resolver';
 import { UserHistoryUserResolver } from './user-history/user.resolver';
 import { UserSettingsUserResolver } from './user-settings/user.resolver';
+import { InfraResolver } from './admin/infra.resolver';
+import { InfraConfigResolver } from './infra-config/infra-config.resolver';
+import { InfraTokenResolver } from './infra-token/infra-token.resolver';
+import { SortTeamCollectionResolver } from './orchestration/sort/sort-team-collection.resolver';
+import { SortUserCollectionResolver } from './orchestration/sort/sort-user-collection.resolver';
+import { MockServerResolver } from './mock-server/mock-server.resolver';
+import { PublishedDocsResolver } from './published-docs/published-docs.resolver';
 
 /**
  * All the resolvers present in the application.
@@ -34,10 +41,10 @@ import { UserSettingsUserResolver } from './user-settings/user.resolver';
  * NOTE: This needs to be KEPT UP-TO-DATE to keep the schema accurate
  */
 const RESOLVERS = [
+  InfraResolver,
   AdminResolver,
   ShortcodeResolver,
   TeamResolver,
-  TeamEnvsTeamResolver,
   TeamMemberResolver,
   TeamCollectionResolver,
   TeamTeamInviteExtResolver,
@@ -46,7 +53,6 @@ const RESOLVERS = [
   TeamInvitationResolver,
   TeamRequestResolver,
   UserResolver,
-  UserCollectionResolver,
   UserEnvironmentsResolver,
   UserEnvsUserResolver,
   UserHistoryUserResolver,
@@ -56,6 +62,12 @@ const RESOLVERS = [
   UserRequestUserCollectionResolver,
   UserSettingsResolver,
   UserSettingsUserResolver,
+  InfraConfigResolver,
+  InfraTokenResolver,
+  SortUserCollectionResolver,
+  SortTeamCollectionResolver,
+  MockServerResolver,
+  PublishedDocsResolver,
 ];
 
 /**

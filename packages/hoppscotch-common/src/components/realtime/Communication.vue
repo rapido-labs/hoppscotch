@@ -1,18 +1,15 @@
 <template>
-  <div
-    class="flex flex-col flex-1"
-    :class="{ eventFeildShown: showEventField }"
-  >
+  <div class="flex flex-1 flex-col">
     <div
       v-if="showEventField"
-      class="sticky z-10 flex items-center justify-center flex-shrink-0 overflow-x-auto border-b bg-primary border-dividerLight"
+      class="sticky z-10 flex flex-shrink-0 items-center justify-center overflow-x-auto border-b border-dividerLight bg-primary"
       :class="eventFieldStyles"
     >
-      <icon-lucide-rss class="mx-4 svg-icons text-accentLight" />
+      <icon-lucide-rss class="svg-icons mx-4 text-accentLight" />
       <input
         id="event_name"
         v-model="eventName"
-        class="w-full py-2 pr-4 truncate bg-primary"
+        class="w-full truncate bg-primary py-2 pr-4"
         name="event_name"
         :placeholder="`${t('socketio.event_name')}`"
         type="text"
@@ -20,117 +17,122 @@
       />
     </div>
     <div
-      class="sticky z-10 flex items-center justify-between flex-shrink-0 pl-4 overflow-x-auto border-b bg-primary border-dividerLight"
+      class="sticky z-10 w-0 min-w-full flex-shrink-0 overflow-x-auto border-b border-dividerLight bg-primary"
       :class="stickyHeaderStyles"
     >
-      <span class="flex items-center">
-        <label class="font-semibold truncate text-secondaryLight">
-          {{ t("websocket.message") }}
-        </label>
-        <tippy
-          interactive
-          trigger="click"
-          theme="popover"
-          :on-shown="() => tippyActions.focus()"
-        >
-          <span class="select-wrapper">
-            <HoppButtonSecondary
-              :label="contentType || t('state.none').toLowerCase()"
-              class="pr-8 ml-2 rounded-none"
-            />
-          </span>
-          <template #content="{ hide }">
-            <div
-              ref="tippyActions"
-              class="flex flex-col focus:outline-none"
-              tabindex="0"
-              @keyup.escape="hide()"
-            >
-              <HoppSmartItem
-                v-for="(contentTypeItem, index) in validContentTypes"
-                :key="`contentTypeItem-${index}`"
-                :label="contentTypeItem"
-                :info-icon="
-                  contentTypeItem === contentType ? IconDone : undefined
-                "
-                :active-info-icon="contentTypeItem === contentType"
-                @click="
-                  () => {
-                    contentType = contentTypeItem
-                    hide()
-                  }
-                "
+      <div class="flex items-center justify-between pl-4">
+        <span class="flex items-center">
+          <label class="truncate font-semibold text-secondaryLight">
+            {{ t("websocket.message") }}
+          </label>
+          <tippy
+            interactive
+            trigger="click"
+            theme="popover"
+            :on-shown="() => tippyActions.focus()"
+          >
+            <HoppSmartSelectWrapper>
+              <HoppButtonSecondary
+                :label="contentType || t('state.none').toLowerCase()"
+                class="ml-2 rounded-none pr-8"
               />
-            </div>
-          </template>
-        </tippy>
-      </span>
-      <div class="flex">
-        <HoppButtonSecondary
-          v-tippy="{ theme: 'tooltip', delay: [500, 20], allowHTML: true }"
-          :title="`${t(
-            'request.run'
-          )} <kbd>${getSpecialKey()}</kbd><kbd>↩</kbd>`"
-          :label="`${t('action.send')}`"
-          :disabled="!communicationBody || !isConnected"
-          :icon="IconSend"
-          class="rounded-none !text-accent !hover:text-accentDark"
-          @click="sendMessage()"
-        />
-        <HoppSmartCheckbox
-          v-tippy="{ theme: 'tooltip' }"
-          :on="clearInputOnSend"
-          class="px-2"
-          :title="`${t('mqtt.clear_input_on_send')}`"
-          @change="clearInputOnSend = !clearInputOnSend"
-        >
-          {{ t("mqtt.clear_input") }}
-        </HoppSmartCheckbox>
-        <HoppButtonSecondary
-          v-tippy="{ theme: 'tooltip' }"
-          to="https://docs.hoppscotch.io/documentation/features/realtime-api-testing"
-          blank
-          :title="t('app.wiki')"
-          :icon="IconHelpCircle"
-        />
-        <HoppButtonSecondary
-          v-tippy="{ theme: 'tooltip' }"
-          :title="t('action.clear')"
-          :icon="IconTrash2"
-          @click="clearContent"
-        />
-        <HoppButtonSecondary
-          v-tippy="{ theme: 'tooltip' }"
-          :title="t('state.linewrap')"
-          :class="{ '!text-accent': linewrapEnabled }"
-          :icon="IconWrapText"
-          @click.prevent="linewrapEnabled = !linewrapEnabled"
-        />
-        <HoppButtonSecondary
-          v-if="contentType && contentType == 'JSON'"
-          v-tippy="{ theme: 'tooltip' }"
-          :title="t('action.prettify')"
-          :icon="prettifyIcon"
-          @click="prettifyRequestBody"
-        />
-        <label for="payload">
+            </HoppSmartSelectWrapper>
+            <template #content="{ hide }">
+              <div
+                ref="tippyActions"
+                class="flex flex-col focus:outline-none"
+                tabindex="0"
+                @keyup.escape="hide()"
+              >
+                <HoppSmartItem
+                  v-for="(contentTypeItem, index) in validContentTypes"
+                  :key="`contentTypeItem-${index}`"
+                  :label="contentTypeItem"
+                  :info-icon="
+                    contentTypeItem === contentType ? IconDone : undefined
+                  "
+                  :active-info-icon="contentTypeItem === contentType"
+                  @click="
+                    () => {
+                      contentType = contentTypeItem
+                      hide()
+                    }
+                  "
+                />
+              </div>
+            </template>
+          </tippy>
+        </span>
+        <div class="flex">
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip', delay: [500, 20], allowHTML: true }"
+            :title="`${t(
+              'request.run'
+            )} <kbd>${getSpecialKey()}</kbd><kbd>↩</kbd>`"
+            :label="`${t('action.send')}`"
+            :disabled="!communicationBody || !isConnected"
+            :icon="IconSend"
+            class="!hover:text-accentDark rounded-none !text-accent"
+            @click="sendMessage()"
+          />
+          <HoppSmartCheckbox
+            v-tippy="{ theme: 'tooltip' }"
+            :on="clearInputOnSend"
+            class="px-2"
+            :title="`${t('mqtt.clear_input_on_send')}`"
+            @change="clearInputOnSend = !clearInputOnSend"
+          >
+            {{ t("mqtt.clear_input") }}
+          </HoppSmartCheckbox>
           <HoppButtonSecondary
             v-tippy="{ theme: 'tooltip' }"
-            :title="t('import.title')"
-            :icon="IconFilePlus"
-            @click="payload!.click()"
+            to="https://docs.hoppscotch.io/documentation/features/realtime-api-testing"
+            blank
+            :title="t('app.wiki')"
+            :icon="IconHelpCircle"
           />
-        </label>
-        <input
-          ref="payload"
-          class="input"
-          name="payload"
-          type="file"
-          @change="uploadPayload"
-        />
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip' }"
+            :title="t('action.clear')"
+            :icon="IconTrash2"
+            @click="clearContent"
+          />
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip' }"
+            :title="t('state.linewrap')"
+            :class="{ '!text-accent': linewrapEnabled }"
+            :icon="IconWrapText"
+            @click.prevent="linewrapEnabled = !linewrapEnabled"
+          />
+          <HoppButtonSecondary
+            v-if="contentType && contentType == 'JSON'"
+            v-tippy="{ theme: 'tooltip' }"
+            :title="t('action.prettify')"
+            :icon="prettifyIcon"
+            @click="prettifyRequestBody"
+          />
+          <label for="payload">
+            <HoppButtonSecondary
+              v-tippy="{ theme: 'tooltip' }"
+              :title="t('import.title')"
+              :icon="IconFilePlus"
+              @click="payload!.click()"
+            />
+          </label>
+          <input
+            id="payload"
+            ref="payload"
+            class="input"
+            name="payload"
+            type="file"
+            @change="uploadPayload"
+          />
+        </div>
       </div>
     </div>
-    <div ref="wsCommunicationBody" class="flex flex-col flex-1"></div>
+    <div class="h-full relative overflow-auto flex flex-col flex-1">
+      <div ref="wsCommunicationBody" class="absolute inset-0"></div>
+    </div>
   </div>
 </template>
 <script setup lang="ts">
@@ -274,17 +276,3 @@ const prettifyRequestBody = () => {
 
 defineActionHandler("request.send-cancel", sendMessage)
 </script>
-
-<style lang="scss" scoped>
-:deep(.cm-panels) {
-  @apply top-upperSecondaryStickyFold #{!important};
-}
-.eventFeildShown :deep(.cm-panels),
-.cmResponsePrimaryStickyFold :deep(.cm-panels) {
-  @apply top-upperTertiaryStickyFold #{!important};
-}
-
-.cmResponseSecondaryStickyFold :deep(.cm-panels) {
-  @apply top-upperFourthStickyFold #{!important};
-}
-</style>

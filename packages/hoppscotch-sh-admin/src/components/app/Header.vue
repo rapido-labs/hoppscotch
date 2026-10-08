@@ -7,7 +7,7 @@
         v-tippy="{ theme: 'tooltip' }"
         :title="t('app.open_navigation')"
         :icon="IconMenu"
-        class="transform !md:hidden mr-2"
+        class="transform md:hidden mr-2"
         @click="isOpen = true"
       />
       <HoppButtonSecondary
@@ -18,12 +18,22 @@
             : `${t('app.expand_sidebar')}`
         "
         :icon="isExpanded ? IconSidebarClose : IconSidebarOpen"
-        class="transform"
+        class="transform hidden md:block"
         @click="expandSidebar"
       />
     </div>
 
     <div class="flex items-center">
+      <div class="inline-flex items-center mr-5">
+        <HoppButtonSecondary
+          to="https://docs.hoppscotch.io/documentation/self-host/community-edition/getting-started"
+          blank
+          v-tippy="{ theme: 'tooltip' }"
+          :title="t('support.documentation')"
+          :icon="IconHelpCircle"
+          class="rounded hover:bg-primaryDark focus-visible:bg-primaryDark"
+        />
+      </div>
       <div v-if="currentUser" class="relative">
         <tippy
           interactive
@@ -33,27 +43,15 @@
           :on-shown="() => tippyActions!.focus()"
         >
           <HoppSmartPicture
-            v-if="currentUser.photoURL"
             v-tippy="{
               theme: 'tooltip',
             }"
-            :url="currentUser.photoURL"
-            :alt="currentUser.displayName ?? `${t('app.no_name')}`"
+            :name="currentUser.uid"
             :title="
               currentUser.displayName ??
               currentUser.email ??
               `${t('app.no_name')}`
             "
-          />
-          <HoppSmartPicture
-            v-else
-            v-tippy="{ theme: 'tooltip' }"
-            :title="
-              currentUser.displayName ??
-              currentUser.email ??
-              `${t('app.no_name')}`
-            "
-            :initial="currentUser.displayName ?? currentUser.email"
           />
           <template #content="{ hide }">
             <div
@@ -81,6 +79,7 @@ import { useSidebar } from '~/composables/useSidebar';
 import { auth } from '~/helpers/auth';
 import IconMenu from '~icons/lucide/menu';
 import IconSidebarOpen from '~icons/lucide/sidebar-open';
+import IconHelpCircle from '~icons/lucide/help-circle';
 import IconSidebarClose from '~icons/lucide/sidebar-close';
 import { useI18n } from '~/composables/i18n';
 

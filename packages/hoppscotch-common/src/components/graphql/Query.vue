@@ -1,6 +1,6 @@
 <template>
   <div
-    class="sticky top-sidebarPrimaryStickyFold z-10 flex items-center justify-between pl-4 border-y bg-primary border-dividerLight"
+    class="sticky top-sidebarPrimaryStickyFold z-10 flex items-center justify-between border-y border-dividerLight bg-primary pl-4"
   >
     <label class="font-semibold text-secondaryLight">
       {{ t("request.query") }}
@@ -16,7 +16,7 @@
         :title="`${t('request.stop')}`"
         :label="`${t('request.stop')}`"
         :icon="IconStop"
-        class="rounded-none !text-accent !hover:text-accentDark"
+        class="!hover:text-accentDark rounded-none !text-accent"
         @click="unsubscribe()"
       />
 
@@ -31,7 +31,7 @@
         :label="`${selectedOperation.name?.value ?? t('request.run')}`"
         :icon="IconPlay"
         :disabled="!selectedOperation"
-        class="rounded-none !text-accent !hover:text-accentDark"
+        class="!hover:text-accentDark rounded-none !text-accent"
         @click="runQuery(selectedOperation)"
       />
 
@@ -47,9 +47,9 @@
       />
       <HoppButtonSecondary
         v-tippy="{ theme: 'tooltip' }"
+        :title="t('app.wiki')"
         to="https://docs.hoppscotch.io/documentation/features/graphql-api-testing"
         blank
-        :title="t('app.wiki')"
         :icon="IconHelpCircle"
       />
       <HoppButtonSecondary
@@ -61,9 +61,9 @@
       <HoppButtonSecondary
         v-tippy="{ theme: 'tooltip' }"
         :title="t('state.linewrap')"
-        :class="{ '!text-accent': linewrapEnabled }"
+        :class="{ '!text-accent': WRAP_LINES }"
         :icon="IconWrapText"
-        @click.prevent="linewrapEnabled = !linewrapEnabled"
+        @click.prevent="toggleNestedSetting('WRAP_LINES', 'graphqlQuery')"
       />
       <HoppButtonSecondary
         v-tippy="{ theme: 'tooltip' }"
@@ -79,7 +79,7 @@
       />
     </div>
   </div>
-  <div ref="queryEditor" class="flex flex-col flex-1"></div>
+  <div ref="queryEditor" class="flex flex-1 flex-col"></div>
 </template>
 
 <script setup lang="ts">
@@ -93,14 +93,14 @@ import IconCheck from "~icons/lucide/check"
 import IconInfo from "~icons/lucide/info"
 import IconWand from "~icons/lucide/wand"
 import IconWrapText from "~icons/lucide/wrap-text"
-import { onMounted, reactive, ref, markRaw } from "vue"
+import { onMounted, reactive, ref, markRaw, watch, nextTick } from "vue"
 import { copyToClipboard } from "@helpers/utils/clipboard"
 import { useCodemirror } from "@composables/codemirror"
 import { useI18n } from "@composables/i18n"
 import { refAutoReset, useVModel } from "@vueuse/core"
 import { useToast } from "~/composables/toast"
 import { getPlatformSpecialKey as getSpecialKey } from "~/helpers/platformutils"
-import * as gql from "graphql"
+import { OperationDefinitionNode, parse, print } from "graphql"
 import { createGQLQueryLinter } from "~/helpers/editor/linting/gqlQuery"
 import queryCompleter from "~/helpers/editor/completion/gqlQuery"
 import { selectedGQLOpHighlight } from "~/helpers/editor/gql/operation"
@@ -112,6 +112,9 @@ import {
   socketDisconnect,
   subscriptionState,
 } from "~/helpers/graphql/connection"
+import { useNestedSetting } from "~/composables/settings"
+import { toggleNestedSetting } from "~/newstore/settings"
+import { useQuery } from "~/helpers/graphql/query"
 
 // Template refs
 const queryEditor = ref<any | null>(null)
@@ -126,7 +129,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "save-request"): void
   (e: "update:modelValue", val: string): void
-  (e: "run-query", definition: gql.OperationDefinitionNode | null): void
+  (e: "cursor-position", val: number): void
+  (e: "run-query", definition: OperationDefinitionNode | null): void
 }>()
 
 const copyQueryIcon = refAutoReset<typeof IconCopy | typeof IconCheck>(
@@ -137,54 +141,69 @@ const prettifyQueryIcon = refAutoReset<
   typeof IconWand | typeof IconCheck | typeof IconInfo
 >(IconWand, 1000)
 
-const linewrapEnabled = ref(true)
+const WRAP_LINES = useNestedSetting("WRAP_LINES", "graphqlQuery")
 
-const selectedOperation = ref<gql.OperationDefinitionNode | null>(null)
+const selectedOperation = ref<OperationDefinitionNode | null>(null)
 
 const gqlQueryString = useVModel(props, "modelValue", emit)
 
+// Add useQuery
+const { updatedQuery, cursorPosition, operationDefinitions } = useQuery()
+
 const debouncedOnUpdateQueryState = debounce((update: ViewUpdate) => {
   const selectedPos = update.state.selection.main.head
+  emit("cursor-position", selectedPos)
+  selectedOperation.value = null
   const queryString = update.state.doc.toJSON().join(update.state.lineBreak)
 
   try {
-    const operations = gql.parse(queryString)
-    if (operations.definitions.length === 1) {
-      selectedOperation.value = operations
-        .definitions[0] as gql.OperationDefinitionNode
+    const ast = parse(queryString)
+
+    operationDefinitions.value = ast.definitions.filter(
+      (def) => def.kind === "OperationDefinition"
+    ) as OperationDefinitionNode[]
+
+    if (ast.definitions.length === 1) {
+      selectedOperation.value = ast.definitions[0] as OperationDefinitionNode
       return
     }
 
     selectedOperation.value =
-      (operations.definitions.find((def) => {
+      (ast.definitions.find((def) => {
         if (def.kind !== "OperationDefinition") return false
         const { start, end } = def.loc!
         return selectedPos >= start && selectedPos <= end
-      }) as gql.OperationDefinitionNode) ?? null
-  } catch (error) {
-    // console.error(error)
+      }) as OperationDefinitionNode) ?? null
+  } catch (_error) {
+    if (queryString.trim() === "") {
+      operationDefinitions.value = []
+    }
   }
-}, 300)
+}, 100)
 
 onMounted(() => {
   try {
-    const operations = gql.parse(gqlQueryString.value)
-    if (operations.definitions.length) {
-      selectedOperation.value = operations
-        .definitions[0] as gql.OperationDefinitionNode
+    const ast = parse(gqlQueryString.value)
+
+    operationDefinitions.value = ast.definitions.filter(
+      (def) => def.kind === "OperationDefinition"
+    ) as OperationDefinitionNode[]
+
+    if (ast.definitions.length) {
+      selectedOperation.value = ast.definitions[0] as OperationDefinitionNode
       return
     }
-  } catch (error) {}
+  } catch (_error) {}
 })
 
-useCodemirror(
+const cmQueryEditor = useCodemirror(
   queryEditor,
   gqlQueryString,
   reactive({
     extendedEditorConfig: {
       mode: "graphql",
       placeholder: `${t("request.query")}`,
-      lineWrapping: linewrapEnabled,
+      lineWrapping: WRAP_LINES,
     },
     linter: createGQLQueryLinter(schema),
     completer: queryCompleter(schema),
@@ -194,18 +213,32 @@ useCodemirror(
   })
 )
 
+// Add watcher for query updates
+watch(updatedQuery, async (newQuery) => {
+  if (newQuery) {
+    gqlQueryString.value = newQuery
+
+    await nextTick()
+
+    // Update cursor position
+    if (cursorPosition.value) {
+      cmQueryEditor.cursor.value = cursorPosition.value
+    }
+  }
+})
+
 // operations on graphql query string
 // const operations = useReadonlyStream(props.request.operations$, [])
 
 const prettifyQuery = () => {
   try {
-    gqlQueryString.value = gql.print(
-      gql.parse(gqlQueryString.value, {
+    gqlQueryString.value = print(
+      parse(gqlQueryString.value, {
         allowLegacyFragmentVariables: true,
       })
     )
     prettifyQueryIcon.value = IconCheck
-  } catch (e) {
+  } catch (_e) {
     toast.error(`${t("error.gql_prettify_invalid_query")}`)
     prettifyQueryIcon.value = IconInfo
   }
@@ -221,7 +254,7 @@ const clearGQLQuery = () => {
   gqlQueryString.value = ""
 }
 
-const runQuery = (definition: gql.OperationDefinitionNode | null = null) => {
+const runQuery = (definition: OperationDefinitionNode | null = null) => {
   emit("run-query", definition)
 }
 const unsubscribe = () => {

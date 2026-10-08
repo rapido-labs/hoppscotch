@@ -1,17 +1,17 @@
 <template>
   <div class="flex flex-col items-center justify-center text-secondaryLight">
-    <div class="flex mb-4 space-x-2">
+    <div class="mb-4 flex space-x-2">
       <div class="flex flex-col items-end space-y-4 text-right">
-        <span class="flex items-center flex-1">
+        <span class="flex flex-1 items-center">
           {{ t("shortcut.request.send_request") }}
         </span>
-        <span class="flex items-center flex-1">
+        <span class="flex flex-1 items-center">
           {{ t("shortcut.general.show_all") }}
         </span>
-        <span class="flex items-center flex-1">
+        <span class="flex flex-1 items-center">
           {{ t("shortcut.general.command_menu") }}
         </span>
-        <span class="flex items-center flex-1">
+        <span class="flex flex-1 items-center">
           {{ t("shortcut.general.help_menu") }}
         </span>
       </div>
@@ -35,7 +35,7 @@
     </div>
     <HoppButtonSecondary
       :label="`${t('app.documentation')}`"
-      to="https://docs.hoppscotch.io/documentation/features/rest-api-testing#response"
+      :to="documentationUrl"
       :icon="IconExternalLink"
       blank
       outline
@@ -48,6 +48,16 @@
 import { useI18n } from "~/composables/i18n"
 import IconExternalLink from "~icons/lucide/external-link"
 import { getPlatformSpecialKey as getSpecialKey } from "~/helpers/platformutils"
+
+withDefaults(
+  defineProps<{
+    documentationUrl?: string
+  }>(),
+  {
+    documentationUrl:
+      "https://docs.hoppscotch.io/documentation/features/rest-api-testing#response",
+  }
+)
 
 const t = useI18n()
 </script>

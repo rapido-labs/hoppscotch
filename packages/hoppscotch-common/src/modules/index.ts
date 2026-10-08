@@ -5,6 +5,12 @@ import { RouteLocationNormalized, Router } from "vue-router"
 
 export type HoppModule = {
   /**
+   * Optional flag to mark a module as deprecated.
+   * Deprecated modules will be filtered out during initialization.
+   */
+  deprecated?: boolean
+
+  /**
    * Define this function to get access to Vue App instance and augment
    * it (installing components, directives and plugins). Also useful for
    * early generic initializations. This function should be called first
@@ -34,7 +40,7 @@ export type HoppModule = {
     to: RouteLocationNormalized,
     from: RouteLocationNormalized,
     router: Router
-  ) => void
+  ) => void | Promise<void>
 
   /**
    * Called by the router to tell all the modules that a route navigation has completed
@@ -48,5 +54,6 @@ export type HoppModule = {
 export const HOPP_MODULES = pipe(
   import.meta.glob("@modules/*.ts", { eager: true }),
   Object.values,
-  A.map(({ default: defaultVal }) => defaultVal as HoppModule)
+  A.map(({ default: defaultVal }) => defaultVal as HoppModule),
+  A.filter((module) => !module.deprecated)
 )

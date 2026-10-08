@@ -6,9 +6,18 @@
     }}</span>
     {{ t('state.login_as_admin') }}
   </div>
+
+  <div v-else-if="fetching" class="flex justify-center py-6">
+    <HoppSmartSpinner />
+  </div>
+
+  <div v-else-if="error">
+    <p class="text-xl">{{ t('state.error') }}</p>
+  </div>
+
   <div v-else class="flex flex-1 flex-col">
     <div
-      class="p-6 bg-primaryLight rounded-lg border border-primaryDark shadow"
+      class="p-4 bg-primaryLight rounded-lg border border-primaryDark shadow"
     >
       <div
         v-if="mode === 'sign-in' && allowedAuthProviders"
@@ -62,7 +71,10 @@
           :label="t('state.send_magic_link')"
         />
       </form>
-      <div v-if="!allowedAuthProviders">
+      <div
+        v-if="!allowedAuthProviders?.length"
+        class="flex flex-col items-center text-center"
+      >
         <p>{{ t('state.require_auth_provider') }}</p>
         <p>{{ t('state.configure_auth') }}</p>
         <div class="mt-5">
@@ -93,7 +105,16 @@
       </div>
     </div>
 
-    <section class="mt-15">
+    <div v-if="canReRunOnboarding" class="mt-4">
+      <span class="text-tiny"> Need to re-configure auth providers? </span>
+      <HoppSmartAnchor
+        class="link text-tiny"
+        :to="`/onboarding`"
+        label="Setup Authentication"
+      />
+    </div>
+
+    <section class="mt-8">
       <div
         v-if="
           mode === 'sign-in' &&
@@ -142,51 +163,54 @@
 </template>
 
 <script setup lang="ts">
+import { computedAsync } from '@vueuse/core';
 import { onMounted, ref } from 'vue';
+import { useI18n } from '~/composables/i18n';
+import { useToast } from '~/composables/toast';
+import { auth } from '~/helpers/auth';
+import { setLocalConfig } from '~/helpers/localpersistence';
+import IconEmail from '~icons/auth/email';
 import IconGithub from '~icons/auth/github';
 import IconGoogle from '~icons/auth/google';
-import IconEmail from '~icons/auth/email';
 import IconMicrosoft from '~icons/auth/microsoft';
 import IconArrowLeft from '~icons/lucide/arrow-left';
 import IconFileText from '~icons/lucide/file-text';
-import { setLocalConfig } from '~/helpers/localpersistence';
-import { useStreamSubscriber } from '~/composables/stream';
-import { useToast } from '~/composables/toast';
-import { auth } from '~/helpers/auth';
-import { HoppButtonPrimary, HoppButtonSecondary } from '@hoppscotch/ui';
-import { useI18n } from '~/composables/i18n';
-
-const { subscribeToStream } = useStreamSubscriber();
 
 const t = useI18n();
 const toast = useToast();
 
 const tosLink = import.meta.env.VITE_APP_TOS_LINK;
 const privacyPolicyLink = import.meta.env.VITE_APP_PRIVACY_POLICY_LINK;
-const allowedAuthProviders = import.meta.env.VITE_ALLOWED_AUTH_PROVIDERS;
-
-// DATA
 
 const form = ref({
   email: '',
 });
+const fetching = ref(false);
+const error = ref(false);
 const signingInWithGoogle = ref(false);
 const signingInWithGitHub = ref(false);
 const signingInWithMicrosoft = ref(false);
 const signingInWithEmail = ref(false);
 const mode = ref('sign-in');
-
 const nonAdminUser = ref(false);
 
-onMounted(() => {
-  const currentUser$ = auth.getCurrentUserStream();
+const allowedAuthProviders = ref<string[]>([]);
 
-  subscribeToStream(currentUser$, (user) => {
-    if (user && !user.isAdmin) {
-      nonAdminUser.value = true;
-      toast.error(t('state.non_admin_login'));
-    }
-  });
+// check if the user can re-run onboarding
+const canReRunOnboarding = computedAsync(async () => {
+  const onboardingStatus = await auth.getOnboardingStatus();
+
+  return (
+    onboardingStatus?.onboardingCompleted && onboardingStatus.canReRunOnboarding
+  );
+});
+
+onMounted(async () => {
+  const user = auth.getCurrentUser();
+  if (user && !user.isAdmin) {
+    nonAdminUser.value = true;
+  }
+  allowedAuthProviders.value = await getAllowedAuthProviders();
 });
 
 const signInWithGoogle = () => {
@@ -239,6 +263,19 @@ const signInWithEmail = async () => {
     toast.error(t('state.email_signin_failure'));
   }
   signingInWithEmail.value = false;
+};
+
+const getAllowedAuthProviders = async () => {
+  fetching.value = true;
+  try {
+    const res = await auth.getAllowedAuthProviders();
+    return res;
+  } catch (e) {
+    error.value = true;
+    toast.error(t('state.error_auth_providers'));
+  } finally {
+    fetching.value = false;
+  }
 };
 
 const logout = async () => {

@@ -8,7 +8,7 @@ import {
 import { markRaw, ref } from "vue"
 import IconArrowDownRight from "~icons/lucide/arrow-down-right"
 import { getI18n } from "~/modules/i18n"
-import { RESTTabService } from "~/services/tab/rest"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
 import { getService } from "~/modules/dioc"
 
 //regex containing both url and parameter
@@ -41,9 +41,7 @@ export class ParameterMenuService extends Service implements ContextMenu {
 
   private readonly contextMenu = this.bind(ContextMenuService)
 
-  constructor() {
-    super()
-
+  override onServiceInit() {
     this.contextMenu.registerMenu(this)
   }
 
@@ -63,7 +61,7 @@ export class ParameterMenuService extends Service implements ContextMenu {
       text = url.search.slice(1)
     }
 
-    const regex = /(\w+)=(\w+)/g
+    const regex = /([^&=]+)=([^&]+)/g
     const matches = text.matchAll(regex)
     const params: Param = {}
 
@@ -89,23 +87,32 @@ export class ParameterMenuService extends Service implements ContextMenu {
       queryParams.push({ key, value, active: true })
     }
 
-    const tabService = getService(RESTTabService)
+    const tabService = getService(WorkspaceTabsService)
+
+    const doc = tabService.currentActiveTab.value.document
+    const currentActiveRequest =
+      doc.type === "request"
+        ? doc.request
+        : doc.type === "example-response"
+          ? doc.response?.originalRequest
+          : null
+
+    if (!currentActiveRequest) return
 
     // add the parameters to the current request parameters
-    tabService.currentActiveTab.value.document.request.params = [
-      ...tabService.currentActiveTab.value.document.request.params,
-      ...queryParams,
+    currentActiveRequest.params = [
+      ...currentActiveRequest.params,
+      ...queryParams.map((param) => ({ ...param, description: "" })),
     ]
 
     if (newURL) {
-      tabService.currentActiveTab.value.document.request.endpoint = newURL
+      currentActiveRequest.endpoint = newURL
     } else {
       // remove the parameter from the URL
       const textRegex = new RegExp(`\\b${text.replace(/\?/g, "")}\\b`, "gi")
-      const sanitizedWord =
-        tabService.currentActiveTab.value.document.request.endpoint
+      const sanitizedWord = currentActiveRequest.endpoint
       const newURL = sanitizedWord.replace(textRegex, "")
-      tabService.currentActiveTab.value.document.request.endpoint = newURL
+      currentActiveRequest.endpoint = newURL
     }
   }
 
@@ -115,7 +122,7 @@ export class ParameterMenuService extends Service implements ContextMenu {
     if (urlAndParameterRegex.test(text)) {
       results.value = [
         {
-          id: "environment",
+          id: "parameter",
           text: {
             type: "text",
             text: this.t("context_menu.add_parameters"),

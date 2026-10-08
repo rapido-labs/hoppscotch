@@ -6,10 +6,10 @@
     @close="hideModal"
   >
     <template #body>
-      <div class="border rounded border-dividerLight">
+      <div class="rounded border border-dividerLight">
         <div class="flex flex-col">
           <div class="flex items-center justify-between pl-4">
-            <label class="font-semibold truncate text-secondaryLight">
+            <label class="truncate font-semibold text-secondaryLight">
               cURL
             </label>
             <div class="flex items-center">
@@ -22,15 +22,9 @@
               <HoppButtonSecondary
                 v-tippy="{ theme: 'tooltip' }"
                 :title="t('state.linewrap')"
-                :class="{ '!text-accent': linewrapEnabled }"
+                :class="{ '!text-accent': WRAP_LINES }"
                 :icon="IconWrapText"
-                @click.prevent="linewrapEnabled = !linewrapEnabled"
-              />
-              <HoppButtonSecondary
-                v-tippy="{ theme: 'tooltip', allowHTML: true }"
-                :title="t('action.download_file')"
-                :icon="downloadIcon"
-                @click="downloadResponse"
+                @click.prevent="toggleNestedSetting('WRAP_LINES', 'importCurl')"
               />
               <HoppButtonSecondary
                 v-tippy="{ theme: 'tooltip', allowHTML: true }"
@@ -43,7 +37,7 @@
           <div class="h-46">
             <div
               ref="curlEditor"
-              class="h-full border-t rounded-b border-dividerLight"
+              class="h-full rounded-b border-t border-dividerLight"
             ></div>
           </div>
         </div>
@@ -84,29 +78,29 @@ import { useCodemirror } from "@composables/codemirror"
 import { useI18n } from "@composables/i18n"
 import { useToast } from "@composables/toast"
 import { parseCurlToHoppRESTReq } from "~/helpers/curl"
-import {
-  useCopyResponse,
-  useDownloadResponse,
-} from "~/composables/lens-actions"
+import { useCopyResponse } from "~/composables/lens-actions"
 
 import IconWrapText from "~icons/lucide/wrap-text"
 import IconClipboard from "~icons/lucide/clipboard"
 import IconCheck from "~icons/lucide/check"
 import IconTrash2 from "~icons/lucide/trash-2"
 import { platform } from "~/platform"
-import { RESTTabService } from "~/services/tab/rest"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
 import { useService } from "dioc/vue"
+import { useNestedSetting } from "~/composables/settings"
+import { toggleNestedSetting } from "~/newstore/settings"
+import { EditorView } from "@codemirror/view"
 
 const t = useI18n()
 
 const toast = useToast()
 
-const tabs = useService(RESTTabService)
+const tabs = useService(WorkspaceTabsService)
 
 const curl = ref("")
 
 const curlEditor = ref<any | null>(null)
-const linewrapEnabled = ref(true)
+const WRAP_LINES = useNestedSetting("WRAP_LINES", "importCurl")
 
 const props = defineProps<{ show: boolean; text: string }>()
 
@@ -117,11 +111,12 @@ useCodemirror(
     extendedEditorConfig: {
       mode: "application/x-sh",
       placeholder: `${t("request.enter_curl")}`,
-      lineWrapping: linewrapEnabled,
+      lineWrapping: WRAP_LINES,
     },
     linter: null,
     completer: null,
     environmentHighlights: false,
+    onInit: (view: EditorView) => view.focus(),
   })
 )
 
@@ -152,7 +147,13 @@ const handleImport = () => {
       type: "HOPP_REST_IMPORT_CURL",
     })
 
-    tabs.currentActiveTab.value.document.request = req
+    if (tabs.currentActiveTab.value.document.type === "example-response") return
+
+    // Preserve the existing request name when importing cURL
+    const currentRequest = tabs.currentActiveTab.value.document.request
+    const reqName = currentRequest?.name ?? req.name
+
+    tabs.currentActiveTab.value.document.request = { ...req, name: reqName }
   } catch (e) {
     console.error(e)
     toast.error(`${t("error.curl_invalid_format")}`)
@@ -179,7 +180,6 @@ const handlePaste = async () => {
 }
 
 const { copyIcon, copyResponse } = useCopyResponse(curl)
-const { downloadIcon, downloadResponse } = useDownloadResponse("", curl)
 
 const clearContent = () => {
   curl.value = ""

@@ -48,15 +48,20 @@ export const authEvents$ = new Subject<
   AuthEvent | { event: 'token_refresh' }
 >();
 
+export type OnboardingStatus = {
+  canReRunOnboarding: boolean;
+  onboardingCompleted: boolean;
+};
+
 const currentUser$ = new BehaviorSubject<HoppUser | null>(null);
 
 const signOut = async (reloadWindow = false) => {
-  await authQuery.logout();
-
-  // Reload the window if both `access_token` and `refresh_token`is invalid
-  // there by the user is taken to the login page
-  if (reloadWindow) {
-    window.location.reload();
+  // Best-effort backend logout — local state must be cleared regardless
+  // so the UI never stays stuck in an authenticated state.
+  try {
+    await authQuery.logout();
+  } catch (_) {
+    // Backend unreachable — continue with local cleanup
   }
 
   currentUser$.next(null);
@@ -65,9 +70,15 @@ const signOut = async (reloadWindow = false) => {
   authEvents$.next({
     event: 'logout',
   });
+
+  // Reload the window if both `access_token` and `refresh_token` are invalid
+  // thereby the user is taken to the login page
+  if (reloadWindow) {
+    window.location.reload();
+  }
 };
 
-const getInitialUserDetails = async () => {
+const getUserDetails = async () => {
   const res = await authQuery.getUserDetails();
   return res.data;
 };
@@ -80,7 +91,7 @@ const setUser = (user: HoppUser | null) => {
 
 const setInitialUser = async () => {
   isGettingInitialUser.value = true;
-  const res = await getInitialUserDetails();
+  const res = await getUserDetails();
 
   if (res.errors?.[0]) {
     const [error] = res.errors;
@@ -127,10 +138,15 @@ const setInitialUser = async () => {
 const refreshToken = async () => {
   try {
     const res = await authQuery.refreshToken();
-    authEvents$.next({
-      event: 'token_refresh',
-    });
-    return res.status === 200;
+    const isSuccessful = res.status === 200;
+
+    if (isSuccessful) {
+      authEvents$.next({
+        event: 'token_refresh',
+      });
+    }
+
+    return isSuccessful;
   } catch {
     return false;
   }
@@ -154,7 +170,7 @@ export const auth = {
   getCurrentUserStream: () => currentUser$,
   getAuthEventsStream: () => authEvents$,
   getCurrentUser: () => currentUser$.value,
-
+  getUserDetails,
   performAuthInit: () => {
     const currentUser = JSON.parse(getLocalConfig('login_state') ?? 'null');
     currentUser$.next(currentUser);
@@ -225,6 +241,63 @@ export const auth = {
 
       removeLocalConfig('deviceIdentifier');
       window.location.href = import.meta.env.VITE_ADMIN_URL;
+    }
+  },
+
+  getAllowedAuthProviders: async () => {
+    const res = await authQuery.getProviders();
+    return res.data?.providers;
+  },
+
+  getFirstTimeInfraSetupStatus: async (): Promise<boolean> => {
+    try {
+      const res = await authQuery.getFirstTimeInfraSetupStatus();
+      return res.data?.value === 'true';
+    } catch (err) {
+      // Setup is not done
+      return true;
+    }
+  },
+
+  updateFirstTimeInfraSetupStatus: async () => {
+    try {
+      await authQuery.updateFirstTimeInfraSetupStatus();
+      return true;
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  },
+
+  getOnboardingStatus: async (): Promise<OnboardingStatus | null> => {
+    try {
+      const res = await authQuery.getOnboardingStatus();
+      return res.data;
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  },
+
+  addOnBoardingConfigs: async (config: Record<string, any>) => {
+    try {
+      const res = await authQuery.addOnBoardingConfigs(config);
+      return res.data as {
+        token: string;
+      };
+    } catch (err) {
+      console.error(err);
+      return null;
+    }
+  },
+
+  getOnboardingConfigs: async (token: string) => {
+    try {
+      const res = await authQuery.getOnBoardingConfigs(token);
+      return res.data;
+    } catch (err) {
+      console.error(err);
+      return null;
     }
   },
 };

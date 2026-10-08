@@ -3,37 +3,75 @@
  * just adding the /browser import as a fix for now, which does not have type info on DefinitelyTyped.
  * remove/update this comment before merging the vue3 port.
  */
-import parser from "yargs-parser/browser"
-import * as O from "fp-ts/Option"
-import * as A from "fp-ts/Array"
-import { pipe, flow } from "fp-ts/function"
 import {
   FormDataKeyValue,
   HoppRESTReqBody,
   makeRESTRequest,
 } from "@hoppscotch/data"
+import * as A from "fp-ts/Array"
+import { flow, pipe } from "fp-ts/function"
+import * as O from "fp-ts/Option"
+import parser from "yargs-parser/browser"
 import { getAuthObject } from "./sub_helpers/auth"
 import { getHeaders, recordToHoppHeaders } from "./sub_helpers/headers"
-// import { getCookies } from "./sub_helpers/cookies"
-import { getQueries } from "./sub_helpers/queries"
-import { getMethod } from "./sub_helpers/method"
-import { concatParams, getURLObject } from "./sub_helpers/url"
-import { preProcessCurlCommand } from "./sub_helpers/preproc"
-import { getBody, getFArgumentMultipartData } from "./sub_helpers/body"
-import { getDefaultRESTRequest } from "../rest/default"
+import { getCookies } from "./sub_helpers/cookies"
 import {
-  objHasProperty,
   objHasArrayProperty,
+  objHasProperty,
 } from "~/helpers/functional/object"
+import { getDefaultRESTRequest } from "../rest/default"
+import { getBody, getFArgumentMultipartData } from "./sub_helpers/body"
+import { getMethod } from "./sub_helpers/method"
+import {
+  preProcessCurlCommand,
+  replaceJSONDataArgsWithPlaceholders,
+  restoreJSONDataArgsFromPlaceholders,
+} from "./sub_helpers/preproc"
+import { getQueries } from "./sub_helpers/queries"
+import { concatParams, getURLObject } from "./sub_helpers/url"
+import { HOPP_ENVIRONMENT_REGEX } from "../environment-regex"
 
 const defaultRESTReq = getDefaultRESTRequest()
+
+/**
+ *
+ * @param str The string to test for environment variables.
+ * @returns A boolean indicating whether the string contains environment variables.
+ */
+const containsEnvVariables = (str: string) => HOPP_ENVIRONMENT_REGEX.test(str)
 
 export const parseCurlCommand = (curlCommand: string) => {
   // const isDataBinary = curlCommand.includes(" --data-binary")
   // const compressed = !!parsedArguments.compressed
 
   curlCommand = preProcessCurlCommand(curlCommand)
-  const parsedArguments = parser(curlCommand)
+
+  const { curlCommand: sanitizedCurlCommand, extractedJSONData } =
+    replaceJSONDataArgsWithPlaceholders(curlCommand)
+
+  const args: parser.Arguments = restoreJSONDataArgsFromPlaceholders(
+    parser(sanitizedCurlCommand),
+    extractedJSONData
+  )
+
+  const parsedArguments = pipe(
+    args,
+    O.fromPredicate(
+      (args) =>
+        objHasProperty("dataUrlencode", "string")(args) ||
+        objHasProperty("dataUrlencode", "object")(args)
+    ),
+    O.map((args) => {
+      const urlEncodedData: string[] = Array.isArray(args.dataUrlencode)
+        ? args.dataUrlencode
+        : [args.dataUrlencode]
+
+      const data = A.map(decodeURIComponent)(urlEncodedData)
+
+      return { ...args, d: data }
+    }),
+    O.getOrElse(() => args)
+  )
 
   const headerObject = getHeaders(parsedArguments)
   const { headers } = headerObject
@@ -46,7 +84,22 @@ export const parseCurlCommand = (curlCommand: string) => {
   )
 
   const method = getMethod(parsedArguments)
-  // const cookies = getCookies(parsedArguments)
+  const cookies = getCookies(parsedArguments)
+
+  // Add cookies to headers if they exist
+  if (Object.keys(cookies).length > 0) {
+    const cookieString = Object.entries(cookies)
+      .map(([key, value]) => `${key}=${value}`)
+      .join("; ")
+
+    hoppHeaders.push({
+      key: "Cookie",
+      value: cookieString,
+      active: true,
+      description: "",
+    })
+  }
+
   const urlObject = getURLObject(parsedArguments)
   const auth = getAuthObject(parsedArguments, headers, urlObject)
 
@@ -73,10 +126,30 @@ export const parseCurlCommand = (curlCommand: string) => {
     Array.from(urlObject.searchParams.entries())
   )
 
-  const stringToPair = flow(
-    decodeURIComponent,
-    (pair) => <[string, string]>pair.split("=", 2)
-  )
+  const safeDecodeURIComponent = (value: string) => {
+    if (!value.includes("%")) return value
+    if (/%(?![0-9A-Fa-f]{2})/.test(value)) return value
+
+    try {
+      return decodeURIComponent(value)
+    } catch {
+      return value
+    }
+  }
+
+  const stringToPair = (pair: string): [string, string] => {
+    const decodedPair = safeDecodeURIComponent(pair)
+    const eqIndex = decodedPair.indexOf("=")
+
+    if (eqIndex === -1) return [decodedPair, ""]
+
+    return [decodedPair.slice(0, eqIndex), decodedPair.slice(eqIndex + 1)]
+  }
+
+  const shouldParseDataAsQueries = objHasProperty(
+    "G",
+    "boolean"
+  )(parsedArguments)
   const pairs = pipe(
     rawData,
     O.fromPredicate(Array.isArray),
@@ -84,20 +157,29 @@ export const parseCurlCommand = (curlCommand: string) => {
     O.alt(() =>
       pipe(
         rawData,
-        O.fromPredicate((s) => s.length > 0),
-        O.map(() => [stringToPair(rawData as string)])
+        O.fromPredicate((s) => shouldParseDataAsQueries && s.length > 0),
+        O.map((s) => [stringToPair(s)])
       )
     ),
     O.getOrElseW(() => undefined)
   )
 
-  if (objHasProperty("G", "boolean")(parsedArguments) && !!pairs) {
+  if (shouldParseDataAsQueries && !!pairs) {
     const newQueries = getQueries(pairs)
     queries = [...queries, ...newQueries.queries]
     danglingParams = [...danglingParams, ...newQueries.danglingParams]
     hasBodyBeenParsed = true
   } else if (
-    rawContentType.includes("application/x-www-form-urlencoded") &&
+    (rawContentType.includes("application/x-www-form-urlencoded") ||
+      /**
+       * When using the -d option with curl for a POST operation,
+       * curl includes a default header: Content-Type: application/x-www-form-urlencoded.
+       * https://everything.curl.dev/http/post/content-type.html
+       */
+      (!rawContentType &&
+        method === "POST" &&
+        rawData &&
+        rawData.length > 0)) &&
     !!pairs &&
     Array.isArray(rawData)
   ) {
@@ -106,7 +188,16 @@ export const parseCurlCommand = (curlCommand: string) => {
     hasBodyBeenParsed = true
   }
 
-  const urlString = concatParams(urlObject, danglingParams)
+  const concatedURL = concatParams(urlObject, danglingParams)
+
+  const decodedURL = decodeURIComponent(concatedURL)
+
+  // Decode the URL only if it’s safe to do so without corrupting environment variables.
+  // This is to ensure that environment variables are not decoded and remain in the format `<<variable_name>>`.
+  // This is useful for code generation where environment variables are used to store sensitive information
+  // such as API keys, secrets, etc.
+  // If the URL does not contain environment variables, decode it normally.
+  const urlString = containsEnvVariables(decodedURL) ? decodedURL : concatedURL
 
   let multipartUploads: Record<string, string> = pipe(
     O.of(parsedArguments),
@@ -181,5 +272,8 @@ export const parseCurlCommand = (curlCommand: string) => {
     testScript: defaultRESTReq.testScript,
     auth,
     body: finalBody,
+    requestVariables: defaultRESTReq.requestVariables,
+    responses: {},
+    description: defaultRESTReq.description,
   })
 }

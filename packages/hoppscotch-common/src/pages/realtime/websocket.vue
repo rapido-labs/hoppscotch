@@ -2,7 +2,7 @@
   <AppPaneLayout layout-id="websocket">
     <template #primary>
       <div
-        class="sticky top-0 z-10 flex flex-shrink-0 p-4 space-x-2 overflow-x-auto bg-primary"
+        class="sticky top-0 z-10 flex flex-shrink-0 space-x-2 overflow-x-auto bg-primary p-4"
       >
         <HoppSmartInput
           v-model="url"
@@ -26,8 +26,8 @@
                 connectionState === 'CONNECTING'
                   ? t('action.connecting')
                   : connectionState === 'DISCONNECTED'
-                  ? t('action.connect')
-                  : t('action.disconnect')
+                    ? t('action.connect')
+                    : t('action.disconnect')
               "
               :loading="connectionState === 'CONNECTING'"
               @click="toggleConnection"
@@ -46,16 +46,15 @@
         >
           <RealtimeCommunication
             :is-connected="connectionState === 'CONNECTED'"
-            class="cmResponsePrimaryStickyFold"
             sticky-header-styles="top-upperSecondaryStickyFold"
             @send-message="sendMessage($event)"
           />
         </HoppSmartTab>
         <HoppSmartTab :id="'protocols'" :label="`${t('websocket.protocols')}`">
           <div
-            class="sticky z-10 flex items-center justify-between flex-shrink-0 pl-4 overflow-x-auto border-b bg-primary border-dividerLight top-upperSecondaryStickyFold"
+            class="sticky top-upperSecondaryStickyFold z-10 flex flex-shrink-0 items-center justify-between overflow-x-auto border-b border-dividerLight bg-primary pl-4"
           >
-            <label class="font-semibold truncate text-secondaryLight">
+            <label class="truncate font-semibold text-secondaryLight">
               {{ t("websocket.protocols") }}
             </label>
             <div class="flex">
@@ -82,10 +81,14 @@
             ghost-class="cursor-move"
             chosen-class="bg-primaryLight"
             drag-class="cursor-grabbing"
+            :move="
+              (event: DragDropEvent) =>
+                isDragDropAllowed(event, protocols?.length)
+            "
           >
             <template #item="{ element: { protocol }, index }">
               <div
-                class="flex border-b divide-x divide-dividerLight border-dividerLight draggable-content group"
+                class="draggable-content group flex divide-x divide-dividerLight border-b border-dividerLight"
               >
                 <span>
                   <HoppButtonSecondary
@@ -98,9 +101,9 @@
                           : null,
                     }"
                     :icon="IconGripVertical"
-                    class="cursor-auto text-primary hover:text-primary"
+                    class="opacity-0"
                     :class="{
-                      'draggable-handle group-hover:text-secondaryLight !cursor-grab':
+                      'draggable-handle cursor-grab group-hover:opacity-100':
                         index !== protocols?.length - 1,
                     }"
                     tabindex="-1"
@@ -108,7 +111,7 @@
                 </span>
                 <input
                   v-model="protocol.value"
-                  class="flex flex-1 px-4 py-2 bg-transparent"
+                  class="flex flex-1 bg-transparent px-4 py-2"
                   :placeholder="`${t('count.protocol', { count: index + 1 })}`"
                   name="message"
                   type="text"
@@ -163,8 +166,7 @@
             :src="`/images/states/${colorMode.value}/add_category.svg`"
             :alt="`${t('empty.protocols')}`"
             :text="`${t('empty.protocols')}`"
-          >
-          </HoppSmartPlaceholder>
+          />
         </HoppSmartTab>
       </HoppSmartTabs>
     </template>
@@ -214,6 +216,7 @@ import { useColorMode } from "@composables/theming"
 import { WSConnection, WSErrorMessage } from "@helpers/realtime/WSConnection"
 import RegexWorker from "@workers/regex?worker"
 import { LogEntryData } from "~/components/realtime/Log.vue"
+import { isDragDropAllowed, DragDropEvent } from "~/helpers/dragDropValidation"
 
 const t = useI18n()
 const toast = useToast()

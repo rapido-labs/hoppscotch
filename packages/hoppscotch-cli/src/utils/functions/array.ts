@@ -1,4 +1,4 @@
-import { clone } from "lodash";
+import { clone } from "lodash-es";
 
 /**
  * Sorts the array based on the sort func.
@@ -28,7 +28,7 @@ export const arrayFlatMap =
 
 export const tupleToRecord = <
   KeyType extends string | number | symbol,
-  ValueType
+  ValueType,
 >(
   tuples: [KeyType, ValueType][]
 ): Record<KeyType, ValueType> =>

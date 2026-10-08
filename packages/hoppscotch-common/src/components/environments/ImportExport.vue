@@ -1,423 +1,498 @@
 <template>
-  <HoppSmartModal
-    v-if="show"
-    dialog
-    :title="`${t('environment.title')}`"
-    styles="sm:max-w-md"
-    @close="hideModal"
-  >
-    <template #actions>
-      <span>
-        <tippy
-          interactive
-          trigger="click"
-          theme="popover"
-          :on-shown="() => tippyActions!.focus()"
-        >
-          <HoppButtonSecondary
-            v-tippy="{ theme: 'tooltip' }"
-            :title="t('action.more')"
-            :icon="IconMoreVertical"
-          />
-          <template #content="{ hide }">
-            <div
-              ref="tippyActions"
-              class="flex flex-col focus:outline-none"
-              tabindex="0"
-              @keyup.escape="hide()"
-            >
-              <HoppSmartItem
-                :icon="IconGithub"
-                :label="t('import.from_gist')"
-                @click="
-                  () => {
-                    readEnvironmentGist()
-                    hide()
-                  }
-                "
-              />
-              <span
-                v-tippy="{ theme: 'tooltip' }"
-                :title="
-                  !currentUser
-                    ? `${t('export.require_github')}`
-                    : currentUser.provider !== 'github.com'
-                    ? `${t('export.require_github')}`
-                    : undefined
-                "
-              >
-                <HoppSmartItem
-                  :disabled="
-                    !currentUser
-                      ? true
-                      : currentUser.provider !== 'github.com'
-                      ? true
-                      : false
-                  "
-                  :icon="IconGithub"
-                  :label="t('export.create_secret_gist')"
-                  @click="
-                    () => {
-                      createEnvironmentGist()
-                      hide()
-                    }
-                  "
-                />
-              </span>
-            </div>
-          </template>
-        </tippy>
-      </span>
-    </template>
-    <template #body>
-      <div v-if="loading" class="flex flex-col items-center justify-center p-4">
-        <HoppSmartSpinner class="my-4" />
-        <span class="text-secondaryLight">{{ t("state.loading") }}</span>
-      </div>
-      <div v-else class="flex flex-col space-y-2">
-        <HoppSmartItem
-          :icon="IconFolderPlus"
-          :label="t('import.from_json')"
-          @click="openDialogChooseFileToImportFrom"
-        />
-        <input
-          ref="inputChooseFileToImportFrom"
-          class="input"
-          type="file"
-          accept="application/json"
-          @change="importFromJSON"
-        />
-        <hr />
-        <HoppSmartItem
-          v-tippy="{ theme: 'tooltip' }"
-          :title="t('action.download_file')"
-          :icon="IconDownload"
-          :label="t('export.as_json')"
-          @click="exportJSON"
-        />
-      </div>
-    </template>
-  </HoppSmartModal>
+  <ImportExportBase
+    ref="collections-import-export"
+    modal-title="environment.title"
+    :importer-modules="importerModules"
+    :exporter-modules="exporterModules"
+    @hide-modal="emit('hide-modal')"
+  />
 </template>
 
 <script setup lang="ts">
-import IconMoreVertical from "~icons/lucide/more-vertical"
-import IconFolderPlus from "~icons/lucide/folder-plus"
-import IconDownload from "~icons/lucide/download"
-import IconGithub from "~icons/lucide/github"
-import { computed, ref } from "vue"
-import { Environment } from "@hoppscotch/data"
-import { platform } from "~/platform"
-import axios from "axios"
-import { useI18n } from "@composables/i18n"
-import { useReadonlyStream } from "@composables/stream"
-import { useToast } from "@composables/toast"
+import { Environment, generateUniqueRefId } from "@hoppscotch/data"
 import {
-  environments$,
-  replaceEnvironments,
+  populateLocalStoresFromVariables,
+  promoteInitialValueForImport,
+  stripClientLocalValuesForWire,
+} from "~/helpers/clientLocalVariables"
+import * as E from "fp-ts/Either"
+import { ref } from "vue"
+
+import { ImporterOrExporter } from "~/components/importExport/types"
+import { useI18n } from "~/composables/i18n"
+import { useToast } from "~/composables/toast"
+import { hoppEnvImporter } from "~/helpers/import-export/import/hoppEnv"
+import { FileSource } from "~/helpers/import-export/import/import-sources/FileSource"
+import { GistSource } from "~/helpers/import-export/import/import-sources/GistSource"
+
+import {
+  addGlobalEnvVariable,
   appendEnvironments,
+  environments$,
+  getGlobalVariables,
 } from "~/newstore/environments"
-import { TeamEnvironment } from "~/helpers/teams/TeamEnvironment"
-import * as TE from "fp-ts/TaskEither"
-import { pipe } from "fp-ts/function"
-import { createTeamEnvironment } from "~/helpers/backend/mutations/TeamEnvironment"
+
+import { useService } from "dioc/vue"
+import { CurrentValueService } from "~/services/current-environment-value.service"
+import { SecretEnvironmentService } from "~/services/secret-environment.service"
 import { GQLError } from "~/helpers/backend/GQLClient"
-import { TippyComponent } from "vue-tippy"
+import { CreateTeamEnvironmentMutation } from "~/helpers/backend/graphql"
+import { createTeamEnvironment } from "~/helpers/backend/mutations/TeamEnvironment"
+import { insomniaEnvImporter } from "~/helpers/import-export/import/insomnia/insomniaEnv"
+import { postmanEnvImporter } from "~/helpers/import-export/import/postmanEnv"
+import { TeamEnvironment } from "~/helpers/teams/TeamEnvironment"
+
+import { computed } from "vue"
+import { useReadonlyStream } from "~/composables/stream"
+import { initializeDownloadFile } from "~/helpers/import-export/export"
+import { transformEnvironmentVariables } from "~/helpers/import-export/export/environment"
+import { environmentsExporter } from "~/helpers/import-export/export/environments"
+import { gistExporter } from "~/helpers/import-export/export/gist"
+import { platform } from "~/platform"
+import IconInsomnia from "~icons/hopp/insomnia"
+import IconPostman from "~icons/hopp/postman"
+import IconFolderPlus from "~icons/lucide/folder-plus"
+import IconUser from "~icons/lucide/user"
+
+const t = useI18n()
+const toast = useToast()
 
 const props = defineProps<{
-  show: boolean
   teamEnvironments?: TeamEnvironment[]
   teamId?: string | undefined
   environmentType: "MY_ENV" | "TEAM_ENV"
 }>()
 
-const emit = defineEmits<{
-  (e: "hide-modal"): void
-}>()
-
-const toast = useToast()
-const t = useI18n()
-
-const loading = ref(false)
-
 const myEnvironments = useReadonlyStream(environments$, [])
+
+const currentEnvironmentValueService = useService(CurrentValueService)
+const secretEnvironmentService = useService(SecretEnvironmentService)
+
 const currentUser = useReadonlyStream(
   platform.auth.getCurrentUserStream(),
   platform.auth.getCurrentUser()
 )
 
-// Template refs
-const tippyActions = ref<TippyComponent | null>(null)
-const inputChooseFileToImportFrom = ref<HTMLInputElement>()
+const isPostmanImporterInProgress = ref(false)
+const isInsomniaImporterInProgress = ref(false)
+const isRESTImporterInProgress = ref(false)
+const isGistImporterInProgress = ref(false)
 
-const environmentJson = computed(() => {
-  if (
-    props.environmentType === "TEAM_ENV" &&
-    props.teamEnvironments !== undefined
-  ) {
-    const teamEnvironments = props.teamEnvironments.map(
-      (x) => x.environment as Environment
-    )
-    return JSON.stringify(teamEnvironments, null, 2)
-  } else {
-    return JSON.stringify(myEnvironments.value, null, 2)
-  }
+const isEnvironmentGistExportInProgress = ref(false)
+
+const isTeamEnvironment = computed(() => {
+  return props.environmentType === "TEAM_ENV"
 })
 
-const createEnvironmentGist = async () => {
-  if (!currentUser.value) {
-    toast.error(t("profile.no_permission").toString())
-
-    return
+const environmentJson = computed(() => {
+  if (isTeamEnvironment.value && props.teamEnvironments) {
+    return props.teamEnvironments.map(({ environment }) =>
+      transformEnvironmentVariables(environment)
+    )
   }
 
-  try {
-    const res = await axios.post(
-      "https://api.github.com/gists",
-      {
-        files: {
-          "hoppscotch-environments.json": {
-            content: environmentJson.value,
-          },
-        },
-      },
-      {
-        headers: {
-          Authorization: `token ${currentUser.value.accessToken}`,
-          Accept: "application/vnd.github.v3+json",
-        },
+  return myEnvironments.value.map(transformEnvironmentVariables)
+})
+
+const workspaceType = computed(() =>
+  isTeamEnvironment.value ? "team" : "personal"
+)
+
+const HoppEnvironmentsImport: ImporterOrExporter = {
+  metadata: {
+    id: "import.from_json",
+    name: "import.from_json",
+    icon: IconFolderPlus,
+    title: "import.from_json",
+    applicableTo: ["personal-workspace", "team-workspace"],
+    disabled: false,
+  },
+  component: FileSource({
+    acceptedFileTypes: "application/json",
+    caption: "import.hoppscotch_environment_description",
+    onImportFromFile: async (environments) => {
+      isRESTImporterInProgress.value = true
+
+      const res = await hoppEnvImporter(environments)()
+
+      if (E.isRight(res)) {
+        await handleImportToStore(res.right)
+
+        platform.analytics?.logEvent({
+          type: "HOPP_IMPORT_ENVIRONMENT",
+          platform: "rest",
+          workspaceType: isTeamEnvironment.value ? "team" : "personal",
+        })
+
+        emit("hide-modal")
+      } else {
+        showImportFailedError()
       }
+
+      isRESTImporterInProgress.value = false
+    },
+    isLoading: isRESTImporterInProgress,
+  }),
+}
+
+const PostmanEnvironmentsImport: ImporterOrExporter = {
+  metadata: {
+    id: "import.from_postman",
+    name: "import.from_postman",
+    icon: IconPostman,
+    title: "import.from_json",
+    applicableTo: ["personal-workspace", "team-workspace"],
+    disabled: false,
+  },
+  component: FileSource({
+    acceptedFileTypes: "application/json",
+    caption: "import.postman_environment_description",
+    onImportFromFile: async (environments) => {
+      isPostmanImporterInProgress.value = true
+
+      const res = await postmanEnvImporter(environments)()
+
+      if (E.isRight(res)) {
+        await handleImportToStore(res.right)
+
+        platform.analytics?.logEvent({
+          type: "HOPP_IMPORT_ENVIRONMENT",
+          platform: "rest",
+          workspaceType: isTeamEnvironment.value ? "team" : "personal",
+        })
+
+        emit("hide-modal")
+      } else {
+        showImportFailedError()
+      }
+
+      isPostmanImporterInProgress.value = false
+    },
+    isLoading: isPostmanImporterInProgress,
+  }),
+}
+
+const insomniaEnvironmentsImport: ImporterOrExporter = {
+  metadata: {
+    id: "import.from_insomnia",
+    name: "import.from_insomnia",
+    icon: IconInsomnia,
+    title: "import.from_json",
+    applicableTo: ["personal-workspace", "team-workspace"],
+    disabled: false,
+  },
+  component: FileSource({
+    acceptedFileTypes: ".json, .yaml, .yml",
+    caption: "import.insomnia_environment_description",
+    onImportFromFile: async (environments) => {
+      isInsomniaImporterInProgress.value = true
+
+      const res = await insomniaEnvImporter(environments)()
+
+      if (E.isRight(res)) {
+        const globalEnvs = res.right.filter(
+          (env) => env.name === "Base Environment"
+        )
+        const otherEnvs = res.right.filter(
+          (env) => env.name !== "Base Environment"
+        )
+
+        await handleImportToStore(otherEnvs, globalEnvs)
+
+        platform.analytics?.logEvent({
+          type: "HOPP_IMPORT_ENVIRONMENT",
+          platform: "rest",
+          workspaceType: isTeamEnvironment.value ? "team" : "personal",
+        })
+
+        emit("hide-modal")
+      } else {
+        showImportFailedError()
+      }
+
+      isInsomniaImporterInProgress.value = false
+    },
+    isLoading: isInsomniaImporterInProgress,
+  }),
+}
+
+const EnvironmentsImportFromGIST: ImporterOrExporter = {
+  metadata: {
+    id: "import.environments_from_gist",
+    name: "import.environments_from_gist",
+    icon: IconFolderPlus,
+    title: "import.environments_from_gist",
+    applicableTo: ["personal-workspace", "team-workspace"],
+    disabled: false,
+  },
+  component: GistSource({
+    caption: "import.environments_from_gist_description",
+    onImportFromGist: async (environments) => {
+      if (E.isLeft(environments)) {
+        showImportFailedError()
+        return
+      }
+
+      isGistImporterInProgress.value = true
+
+      const res = await hoppEnvImporter(environments.right)()
+
+      if (E.isRight(res)) {
+        await handleImportToStore(res.right)
+
+        platform.analytics?.logEvent({
+          type: "HOPP_IMPORT_ENVIRONMENT",
+          platform: "rest",
+          workspaceType: isTeamEnvironment.value ? "team" : "personal",
+        })
+        emit("hide-modal")
+      } else {
+        showImportFailedError()
+      }
+
+      isGistImporterInProgress.value = false
+    },
+    isLoading: isGistImporterInProgress,
+  }),
+}
+
+const HoppEnvironmentsExport: ImporterOrExporter = {
+  metadata: {
+    id: "export.as_json",
+    name: "export.as_json",
+    title: "action.download_file",
+    icon: IconUser,
+    disabled: false,
+    applicableTo: ["personal-workspace", "team-workspace"],
+  },
+  action: async () => {
+    if (!environmentJson.value.length) {
+      return toast.error(t("error.no_environments_to_export"))
+    }
+
+    const message = await initializeDownloadFile(
+      environmentsExporter(environmentJson.value),
+      `hoppscotch-${workspaceType.value}-environments`
     )
 
-    toast.success(t("export.gist_created").toString())
+    if (E.isLeft(message)) {
+      toast.error(t("export.failed"))
+      return
+    }
+
+    toast.success(t("state.download_started"))
 
     platform.analytics?.logEvent({
       type: "HOPP_EXPORT_ENVIRONMENT",
       platform: "rest",
     })
-
-    window.open(res.data.html_url)
-  } catch (e) {
-    toast.error(t("error.something_went_wrong").toString())
-    console.error(e)
-  }
+  },
 }
 
-const fileImported = () => {
-  toast.success(t("state.file_imported").toString())
-}
-
-const failedImport = () => {
-  toast.error(t("import.failed").toString())
-}
-
-const readEnvironmentGist = async () => {
-  const gist = prompt(t("import.gist_url").toString())
-  if (!gist) return
-
-  try {
-    const { files } = (await axios.get(
-      `https://api.github.com/gists/${gist.split("/").pop()}`,
-      {
-        headers: {
-          Accept: "application/vnd.github.v3+json",
-        },
-      }
-    )) as {
-      files: {
-        [fileName: string]: {
-          content: any
-        }
-      }
+const HoppEnvironmentsGistExporter: ImporterOrExporter = {
+  metadata: {
+    id: "export.as_gist",
+    name: "export.create_secret_gist",
+    title:
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore
+      currentUser?.value?.provider === "github.com"
+        ? "export.create_secret_gist_tooltip_text"
+        : "export.require_github",
+    icon: IconUser,
+    disabled: !currentUser.value
+      ? true
+      : currentUser.value?.provider !== "github.com",
+    applicableTo: ["personal-workspace", "team-workspace"],
+    isLoading: isEnvironmentGistExportInProgress,
+  },
+  action: async () => {
+    if (!environmentJson.value.length) {
+      return toast.error(t("error.no_environments_to_export"))
     }
-    const environments = JSON.parse(Object.values(files)[0].content)
 
-    if (props.environmentType === "MY_ENV") {
-      replaceEnvironments(environments)
-      fileImported()
-    } else {
-      importToTeams(environments)
-    }
-  } catch (e) {
-    failedImport()
-    console.error(e)
-  }
-}
-
-const hideModal = () => {
-  emit("hide-modal")
-}
-
-const openDialogChooseFileToImportFrom = () => {
-  if (inputChooseFileToImportFrom.value)
-    inputChooseFileToImportFrom.value.click()
-}
-
-const importToTeams = async (content: Environment[]) => {
-  loading.value = true
-
-  platform.analytics?.logEvent({
-    type: "HOPP_IMPORT_ENVIRONMENT",
-    platform: "rest",
-    workspaceType: "team",
-  })
-
-  for (const [i, env] of content.entries()) {
-    if (i === content.length - 1) {
-      await pipe(
-        createTeamEnvironment(
-          JSON.stringify(env.variables),
-          props.teamId as string,
-          env.name
-        ),
-        TE.match(
-          (err: GQLError<string>) => {
-            console.error(err)
-            toast.error(`${getErrorMessage(err)}`)
-          },
-          () => {
-            loading.value = false
-            hideModal()
-            fileImported()
-          }
-        )
-      )()
-    } else {
-      await pipe(
-        createTeamEnvironment(
-          JSON.stringify(env.variables),
-          props.teamId as string,
-          env.name
-        ),
-        TE.match(
-          (err: GQLError<string>) => {
-            console.error(err)
-            toast.error(`${getErrorMessage(err)}`)
-          },
-          () => {
-            // wait for all the environments to be created then fire the toast
-          }
-        )
-      )()
-    }
-  }
-}
-
-const importFromJSON = () => {
-  if (!inputChooseFileToImportFrom.value) return
-
-  if (
-    !inputChooseFileToImportFrom.value.files ||
-    inputChooseFileToImportFrom.value.files.length === 0
-  ) {
-    toast.show(t("action.choose_file").toString())
-    return
-  }
-
-  platform.analytics?.logEvent({
-    type: "HOPP_IMPORT_ENVIRONMENT",
-    platform: "rest",
-    workspaceType: "personal",
-  })
-
-  const reader = new FileReader()
-
-  reader.onload = ({ target }) => {
-    const content = target!.result as string | null
-
-    if (!content) {
-      toast.show(t("action.choose_file").toString())
+    if (!currentUser.value) {
+      toast.error(t("profile.no_permission"))
       return
     }
 
-    const environments = JSON.parse(content)
+    isEnvironmentGistExportInProgress.value = true
 
-    if (
-      environments._postman_variable_scope === "environment" ||
-      environments._postman_variable_scope === "globals"
-    ) {
-      importFromPostman(environments)
-    } else if (environments[0]) {
-      const [name, variables] = Object.keys(environments[0])
-      if (name === "name" && variables === "variables") {
-        // Do nothing
+    const accessToken = currentUser.value?.accessToken
+
+    if (accessToken) {
+      const res = await gistExporter(
+        JSON.stringify(environmentJson.value),
+        accessToken,
+        "hoppscotch-environment.json"
+      )
+
+      if (E.isLeft(res)) {
+        toast.error(t("export.failed"))
+        isEnvironmentGistExportInProgress.value = false
+        return
       }
-      importFromHoppscotch(environments)
-    } else {
-      failedImport()
+
+      toast.success(t("export.secret_gist_success"))
+
+      platform.analytics?.logEvent({
+        type: "HOPP_EXPORT_ENVIRONMENT",
+        platform: "rest",
+      })
+
+      platform.kernelIO.openExternalLink({ url: res.right })
     }
-  }
 
-  reader.readAsText(inputChooseFileToImportFrom.value.files[0])
-  inputChooseFileToImportFrom.value.value = ""
+    isEnvironmentGistExportInProgress.value = false
+  },
 }
 
-const importFromHoppscotch = (environments: Environment[]) => {
+const importerModules = [
+  HoppEnvironmentsImport,
+  EnvironmentsImportFromGIST,
+  PostmanEnvironmentsImport,
+  insomniaEnvironmentsImport,
+]
+
+const exporterModules = computed(() => {
+  const enabledExporters = [HoppEnvironmentsExport]
+
+  if (platform.platformFeatureFlags.exportAsGIST) {
+    enabledExporters.push(HoppEnvironmentsGistExporter)
+  }
+
+  return enabledExporters
+})
+
+const showImportFailedError = () => {
+  toast.error(t("import.failed").toString())
+}
+
+const handleImportToStore = async (
+  environments: Environment[],
+  globalEnvs: Environment[] = []
+) => {
+  // Per-env populate happens inside MY_ENV / TEAMS branches below, each
+  // keyed appropriately. Globals share the single `"Global"` key and must
+  // merge with existing entries — hydrate, concat, populate once.
+  if (globalEnvs.length > 0) {
+    const importedGlobals = globalEnvs.flatMap(({ variables }) => variables)
+
+    const existingHydrated: Environment["variables"] = getGlobalVariables().map(
+      (v, i) => {
+        if (v.secret) {
+          const stored = secretEnvironmentService.getSecretEnvironmentVariable(
+            "Global",
+            i
+          )
+          return {
+            ...v,
+            initialValue: stored?.initialValue ?? "",
+            currentValue: stored?.value ?? "",
+          }
+        }
+        const stored = currentEnvironmentValueService.getEnvironmentVariable(
+          "Global",
+          i
+        )
+        return {
+          ...v,
+          currentValue: stored?.currentValue ?? v.currentValue,
+        }
+      }
+    )
+
+    // `populateLocalStoresFromVariables` is a full replace for `"Global"`.
+    // Relies on the sync path above (`getGlobalVariables()` → hydrate →
+    // concat) running with no awaits in between — a future refactor that
+    // introduces one between the snapshot and this call would silently
+    // drop any global added meanwhile.
+    //
+    // Promote on the IMPORTED slice only (not `existingHydrated`) so a
+    // legacy export shape (`initialValue` set, `currentValue: ""`) lands
+    // its secrets correctly, while user-cleared existing globals stay
+    // cleared per the rehydration semantic.
+    populateLocalStoresFromVariables("Global", [
+      ...existingHydrated,
+      ...promoteInitialValueForImport(importedGlobals),
+    ])
+
+    // Append stripped imports; varIndex aligns with the hydrated entries.
+    stripClientLocalValuesForWire(importedGlobals).forEach(
+      ({ key, initialValue, currentValue, secret }) => {
+        addGlobalEnvVariable({ key, initialValue, currentValue, secret })
+      }
+    )
+  }
+
   if (props.environmentType === "MY_ENV") {
-    appendEnvironments(environments)
-    fileImported()
+    // Always stamp a fresh temp id, even if the export carried one —
+    // re-using the exported `id` would land the populate on a store
+    // entry already owned by the original environment (then the sync
+    // remap would migrate that entry away, blanking the original's
+    // secrets). A fresh id guarantees no collision with anything in
+    // the store before the sync handler creates the new backend row.
+    const envsWithIds = environments.map((env) => ({
+      ...env,
+      id: generateUniqueRefId("env"),
+    }))
+
+    envsWithIds.forEach((env) => {
+      populateLocalStoresFromVariables(
+        env.id,
+        promoteInitialValueForImport(env.variables)
+      )
+    })
+
+    const strippedEnvironments = envsWithIds.map((env) => ({
+      ...env,
+      variables: stripClientLocalValuesForWire(env.variables),
+    }))
+    appendEnvironments(strippedEnvironments)
+    toast.success(t("state.file_imported"))
   } else {
-    importToTeams(environments)
+    await importToTeams(environments)
   }
 }
 
-const importFromPostman = ({
-  name,
-  values,
-}: {
-  name: string
-  values: { key: string; value: string }[]
-}) => {
-  const environment: Environment = { name, variables: [] }
-  values.forEach(({ key, value }) => environment.variables.push({ key, value }))
-  const environments = [environment]
+const importToTeams = async (content: Environment[]) => {
+  const envImportPromises: Promise<
+    E.Either<GQLError<"">, CreateTeamEnvironmentMutation>
+  >[] = []
 
-  importFromHoppscotch(environments)
-}
+  for (const [, env] of content.entries()) {
+    const res = createTeamEnvironment(
+      JSON.stringify(stripClientLocalValuesForWire(env.variables)),
+      props.teamId as string,
+      env.name
+    )()
 
-const exportJSON = async () => {
-  const dataToWrite = environmentJson.value
-
-  const parsedCollections = JSON.parse(dataToWrite)
-
-  if (!parsedCollections.length) {
-    return toast.error(t("error.no_environments_to_export"))
+    envImportPromises.push(res)
   }
 
-  const file = new Blob([dataToWrite], { type: "application/json" })
-  const url = URL.createObjectURL(file)
+  const res = await Promise.all(envImportPromises)
 
-  const filename = `${url.split("/").pop()!.split("#")[0].split("?")[0]}.json`
-
-  URL.revokeObjectURL(url)
-
-  const result = await platform.io.saveFileWithDialog({
-    data: dataToWrite,
-    contentType: "application/json",
-    suggestedFilename: filename,
-    filters: [
-      {
-        name: "JSON file",
-        extensions: ["json"],
-      },
-    ],
+  // Populate local stores keyed by the new backend env ID — this device
+  // retains the raw values; the team DB row stays clean.
+  res.forEach((entry, index) => {
+    if (E.isRight(entry)) {
+      populateLocalStoresFromVariables(
+        entry.right.createTeamEnvironment.id,
+        promoteInitialValueForImport(content[index].variables)
+      )
+    }
   })
 
-  if (result.type === "unknown" || result.type === "saved") {
-    toast.success(t("state.download_started").toString())
+  const failedImports = res.some((r) => E.isLeft(r))
+
+  if (failedImports) {
+    toast.error(t("import.failed"))
+  } else {
+    toast.success(t("import.success"))
   }
 }
 
-const getErrorMessage = (err: GQLError<string>) => {
-  if (err.type === "network_error") {
-    return t("error.network_error")
-  } else {
-    switch (err.error) {
-      case "team_environment/not_found":
-        return t("team_environment.not_found")
-      default:
-        return t("error.something_went_wrong")
-    }
-  }
-}
+const emit = defineEmits<{
+  (e: "hide-modal"): () => void
+}>()
 </script>

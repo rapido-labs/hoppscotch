@@ -5,18 +5,13 @@ import { io as ClientV3, Socket as SocketV3 } from "socket.io-client-v3"
 
 type Options = {
   path: string
-  auth: {
+  auth?: {
     token: string | undefined
   }
 }
 
 type PossibleEvent =
-  | "connect"
-  | "connect_error"
-  | "reconnect_error"
-  | "error"
-  | "disconnect"
-  | "*"
+  "connect" | "connect_error" | "reconnect_error" | "error" | "disconnect" | "*"
 
 export interface SIOClient {
   connect(url: string, opts?: Options): void

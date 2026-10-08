@@ -1,12 +1,11 @@
-import { Service } from "dioc"
+import { Container, Service } from "dioc"
 import {
   type SpotlightSearcher,
   type SpotlightSearcherResult,
   type SpotlightSearcherSessionState,
 } from "../.."
 import MiniSearch from "minisearch"
-import { Ref, computed, effectScope, ref, watch } from "vue"
-import { resolveUnref } from "@vueuse/core"
+import { Ref, computed, effectScope, ref, watch, toValue } from "vue"
 
 /**
  * Defines a search result and additional metadata returned by a StaticSpotlightSearcher
@@ -53,8 +52,8 @@ export type StaticSpotlightSearcherOptions<
  * that can optionally be toggled against (via the `excludeFromSearch` property in the Doc)
  */
 export abstract class StaticSpotlightSearcherService<
-    Doc extends object & { excludeFromSearch?: boolean },
-  >
+  Doc extends object & { excludeFromSearch?: boolean },
+>
   extends Service
   implements SpotlightSearcher
 {
@@ -67,8 +66,12 @@ export abstract class StaticSpotlightSearcherService<
 
   private _documents: Record<string, Doc> = {}
 
-  constructor(private opts: StaticSpotlightSearcherOptions<Doc>) {
-    super()
+  // TODO: This pattern is no longer recommended in dioc > 3, move to something else
+  constructor(
+    c: Container,
+    private opts: StaticSpotlightSearcherOptions<Doc>
+  ) {
+    super(c)
 
     this.minisearch = new MiniSearch({
       fields: opts.searchFields as string[],
@@ -171,6 +174,6 @@ export abstract class StaticSpotlightSearcherService<
   public abstract onDocSelected(id: string, doc: Doc): void
 
   public onResultSelect(result: SpotlightSearcherResult): void {
-    this.onDocSelected(result.id, resolveUnref(this._documents)[result.id])
+    this.onDocSelected(result.id, toValue(this._documents)[result.id])
   }
 }

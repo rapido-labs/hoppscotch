@@ -11,40 +11,50 @@ export const ONLY_ONE_ADMIN_ACCOUNT =
   'admin/only_one_admin_account_found' as const;
 
 /**
+ * Admin user can not be deleted
+ * To delete the admin user, first make the Admin user a normal user
+ * (AdminService)
+ */
+export const ADMIN_CAN_NOT_BE_DELETED =
+  'admin/admin_can_not_be_deleted' as const;
+
+/**
  * Token Authorization failed (Check 'Authorization' Header)
  * (GqlAuthGuard)
  */
-export const AUTH_FAIL = 'auth/fail';
+export const AUTH_FAIL = 'auth/fail' as const;
 
 /**
  * Invalid JSON
  * (Utils)
  */
-export const JSON_INVALID = 'json_invalid';
+export const JSON_INVALID = 'json_invalid' as const;
 
 /**
  * Auth Provider not specified
  * (Auth)
  */
-export const AUTH_PROVIDER_NOT_SPECIFIED = 'auth/provider_not_specified';
+export const AUTH_PROVIDER_NOT_SPECIFIED =
+  'auth/provider_not_specified' as const;
 
 /**
- * Environment variable "VITE_ALLOWED_AUTH_PROVIDERS" is not present in .env file
+ * Email not provided by OAuth provider
+ * (SSO Strategies)
  */
-export const ENV_NOT_FOUND_KEY_AUTH_PROVIDERS =
-  '"VITE_ALLOWED_AUTH_PROVIDERS" is not present in .env file';
+export const AUTH_EMAIL_NOT_PROVIDED_BY_OAUTH =
+  'auth/email_not_provided_by_oauth';
 
 /**
- * Environment variable "VITE_ALLOWED_AUTH_PROVIDERS" is empty in .env file
+ * Environment variable "DATA_ENCRYPTION_KEY" is not present in .env file
  */
-export const ENV_EMPTY_AUTH_PROVIDERS =
-  '"VITE_ALLOWED_AUTH_PROVIDERS" is empty in .env file';
+export const ENV_NOT_FOUND_KEY_DATA_ENCRYPTION_KEY =
+  '"DATA_ENCRYPTION_KEY" is not present in .env file';
 
 /**
- * Environment variable "VITE_ALLOWED_AUTH_PROVIDERS" contains unsupported provider in .env file
+ * Environment variable "DATA_ENCRYPTION_KEY" is changed in .env file
  */
-export const ENV_NOT_SUPPORT_AUTH_PROVIDERS =
-  '"VITE_ALLOWED_AUTH_PROVIDERS" contains an unsupported auth provider in .env file';
+export const ENV_INVALID_DATA_ENCRYPTION_KEY =
+  '"DATA_ENCRYPTION_KEY" value changed in .env file. Please undo the changes and restart the server';
 
 /**
  * Tried to delete a user data document from fb firestore but failed.
@@ -70,6 +80,12 @@ export const USER_ALREADY_INVITED = 'admin/user_already_invited' as const;
 export const USER_UPDATE_FAILED = 'user/update_failed' as const;
 
 /**
+ * User display name validation failure
+ * (UserService)
+ */
+export const USER_SHORT_DISPLAY_NAME = 'user/short_display_name' as const;
+
+/**
  * User deletion failure
  * (UserService)
  */
@@ -91,6 +107,13 @@ export const USER_IS_OWNER = 'user/is_owner' as const;
  * (UserService)
  */
 export const USER_IS_ADMIN = 'user/is_admin' as const;
+
+/**
+ * User invite deletion failure error due to invitation not found
+ * (AdminService)
+ */
+export const USER_INVITATION_DELETION_FAILED =
+  'user/invitation_deletion_failed' as const;
 
 /**
  * Teams not found
@@ -146,7 +169,7 @@ export const TEAM_NOT_REQUIRED_ROLE = 'team/not_required_role' as const;
  * Team name validation failure
  * (TeamService)
  */
-export const TEAM_NAME_INVALID = 'team/name_invalid';
+export const TEAM_NAME_INVALID = 'team/name_invalid' as const;
 
 /**
  * Couldn't find the sync data from the user
@@ -165,6 +188,18 @@ export const TEAM_FB_COLL_PATH_RESOLVE_FAIL = 'team/fb_coll_path_resolve_fail';
  * (TeamCollectionService)
  */
 export const TEAM_COLL_NOT_FOUND = 'team_coll/collection_not_found';
+
+/**
+ * The collection does not have the same parent as the expected parent
+ * (TeamCollectionService)
+ */
+export const TEAM_COLL_NOT_SAME_PARENT = 'team_coll/not_same_parent';
+
+/**
+ * Could not find the team in the database
+ * (TeamCollectionService)
+ */
+export const TEAM_COLL_CREATION_FAILED = 'team_coll/creation_failed';
 
 /**
  * Cannot make parent collection a child of a collection that a child of itself
@@ -193,18 +228,17 @@ export const TEAM_COL_ALREADY_ROOT =
   'team_coll/target_collection_is_already_root_collection';
 
 /**
- * Collections have different parents
- * (TeamCollectionService)
- */
-export const TEAM_COL_NOT_SAME_PARENT =
-  'team_coll/team_collections_have_different_parents';
-
-/**
  * Collection and next Collection are the same
  * (TeamCollectionService)
  */
 export const TEAM_COL_SAME_NEXT_COLL =
   'team_coll/collection_and_next_collection_are_same';
+
+/**
+ * Team Collection search failed
+ * (TeamCollectionService)
+ */
+export const TEAM_COL_SEARCH_FAILED = 'team_coll/team_collection_search_failed';
 
 /**
  * Team Collection Re-Ordering Failed
@@ -255,6 +289,20 @@ export const TEAM_COLL_INVALID_JSON = 'team_coll/invalid_json';
 export const TEAM_NOT_OWNER = 'team_coll/team_not_owner' as const;
 
 /**
+ * The Team Collection data is not valid
+ * (TeamCollectionService)
+ */
+export const TEAM_COLL_DATA_INVALID =
+  'team_coll/team_coll_data_invalid' as const;
+
+/**
+ * Team Collection parent tree generation failed
+ * (TeamCollectionService)
+ */
+export const TEAM_COLL_PARENT_TREE_GEN_FAILED =
+  'team_coll/team_coll_parent_tree_generation_failed';
+
+/**
  * Tried to perform an action on a request that doesn't accept their member role level
  * (GqlRequestTeamMemberGuard)
  */
@@ -278,6 +326,19 @@ export const TEAM_REQ_INVALID_TARGET_COLL_ID =
  * (TeamRequestService)
  */
 export const TEAM_REQ_REORDERING_FAILED = 'team_req/reordering_failed' as const;
+
+/**
+ * Team Request search failed
+ * (TeamRequestService)
+ */
+export const TEAM_REQ_SEARCH_FAILED = 'team_req/team_request_search_failed';
+
+/**
+ * Team Request parent tree generation failed
+ * (TeamRequestService)
+ */
+export const TEAM_REQ_PARENT_TREE_GEN_FAILED =
+  'team_req/team_req_parent_tree_generation_failed';
 
 /**
  * No Postmark Sender Email defined
@@ -317,18 +378,6 @@ export const TEAM_INVITATION_NOT_FOUND =
  * (ShortcodeService)
  */
 export const SHORTCODE_NOT_FOUND = 'shortcode/not_found' as const;
-
-/**
- * Invalid ShortCode format
- * (ShortcodeService)
- */
-export const SHORTCODE_INVALID_JSON = 'shortcode/invalid_json' as const;
-
-/**
- * ShortCode already exists in DB
- * (ShortcodeService)
- */
-export const SHORTCODE_ALREADY_EXISTS = 'shortcode/already_exists' as const;
 
 /**
  * Invalid or non-existent TEAM ENVIRONMENT ID
@@ -374,8 +423,8 @@ export const USER_SETTINGS_NULL_SETTINGS =
  * Global environment doesn't exist for the user
  * (UserEnvironmentsService)
  */
-export const USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXISTS =
-  'user_environment/global_env_does_not_exists' as const;
+export const USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXIST =
+  'user_environment/global_env_does_not_exist' as const;
 
 /**
  * Global environment already exists for the user
@@ -383,15 +432,13 @@ export const USER_ENVIRONMENT_GLOBAL_ENV_DOES_NOT_EXISTS =
  */
 export const USER_ENVIRONMENT_GLOBAL_ENV_EXISTS =
   'user_environment/global_env_already_exists' as const;
-/*
 
 /**
  * User environment doesn't exist for the user
  * (UserEnvironmentsService)
  */
-export const USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS =
-  'user_environment/user_env_does_not_exists' as const;
-/*
+export const USER_ENVIRONMENT_ENV_DOES_NOT_EXIST =
+  'user_environment/user_env_does_not_exist' as const;
 
 /**
  * Cannot delete the global user environment
@@ -399,7 +446,6 @@ export const USER_ENVIRONMENT_ENV_DOES_NOT_EXISTS =
  */
 export const USER_ENVIRONMENT_GLOBAL_ENV_DELETION_FAILED =
   'user_environment/user_env_global_env_deletion_failed' as const;
-/*
 
 /**
  * User environment is not a global environment
@@ -407,7 +453,6 @@ export const USER_ENVIRONMENT_GLOBAL_ENV_DELETION_FAILED =
  */
 export const USER_ENVIRONMENT_IS_NOT_GLOBAL =
   'user_environment/user_env_is_not_global' as const;
-/*
 
 /**
  * User environment update failed
@@ -415,7 +460,12 @@ export const USER_ENVIRONMENT_IS_NOT_GLOBAL =
  */
 export const USER_ENVIRONMENT_UPDATE_FAILED =
   'user_environment/user_env_update_failed' as const;
-/*
+
+/**
+ * User environment not found for the user
+ * (UserEnvironmentsService)
+ */
+export const USER_ENVIRONMENT_NOT_FOUND = 'user_environment/not_found' as const;
 
 /**
  * User environment invalid environment name
@@ -423,7 +473,6 @@ export const USER_ENVIRONMENT_UPDATE_FAILED =
  */
 export const USER_ENVIRONMENT_INVALID_ENVIRONMENT_NAME =
   'user_environment/user_env_invalid_env_name' as const;
-/*
 
 /**
  * User history not found
@@ -431,7 +480,19 @@ export const USER_ENVIRONMENT_INVALID_ENVIRONMENT_NAME =
  */
 export const USER_HISTORY_NOT_FOUND = 'user_history/history_not_found' as const;
 
-/*
+/**
+ * User history deletion failed
+ * (UserHistoryService)
+ */
+export const USER_HISTORY_DELETION_FAILED =
+  'user_history/deletion_failed' as const;
+
+/**
+ * User history feature flag is disabled
+ * (UserHistoryService)
+ */
+export const USER_HISTORY_FEATURE_FLAG_DISABLED =
+  'user_history/feature_flag_disabled';
 
 /**
  * Invalid Request Type in History
@@ -521,6 +582,18 @@ export const TOKEN_EXPIRED = 'auth/token_expired' as const;
 export const MAGIC_LINK_EXPIRED = 'auth/magic_link_expired' as const;
 
 /**
+ * Auth header was NOT found in the auth request
+ * (AuthService)
+ */
+export const AUTH_HEADER_NOT_FOUND = 'auth/auth_header_not_found' as const;
+
+/**
+ * Auth header was found but the format was invalid
+ * (AuthService)
+ */
+export const INVALID_AUTH_HEADER = 'auth/invalid_auth_header' as const;
+
+/**
  * No cookies were found in the auth request
  * (AuthService)
  */
@@ -584,6 +657,13 @@ export const USER_COLL_IS_PARENT_COLL =
   'user_coll/user_collection_is_parent_coll' as const;
 
 /**
+ * User Collection Creation Failed
+ * (UserCollectionService)
+ */
+export const USER_COLLECTION_CREATION_FAILED =
+  'user_collection/creation_failed' as const;
+
+/**
  * User Collection Re-Ordering Failed
  * (UserCollectionService)
  */
@@ -596,6 +676,13 @@ export const USER_COLL_REORDERING_FAILED =
  */
 export const USER_COLL_SAME_NEXT_COLL =
   'user_coll/user_collection_and_next_user_collection_are_same' as const;
+
+/**
+ * The User Collection data is not valid
+ * (UserCollectionService)
+ */
+export const USER_COLL_DATA_INVALID =
+  'user_coll/user_coll_data_invalid' as const;
 
 /**
  * The User Collection does not belong to the logged-in user
@@ -621,3 +708,285 @@ export const MAILER_SMTP_URL_UNDEFINED = 'mailer/smtp_url_undefined' as const;
  */
 export const MAILER_FROM_ADDRESS_UNDEFINED =
   'mailer/from_address_undefined' as const;
+
+/**
+ * MAILER_SMTP_USER environment variable is not defined
+ * (MailerModule)
+ */
+export const MAILER_SMTP_USER_UNDEFINED = 'mailer/smtp_user_undefined' as const;
+
+/**
+ * MAILER_SMTP_PASSWORD environment variable is not defined
+ * (MailerModule)
+ */
+export const MAILER_SMTP_PASSWORD_UNDEFINED =
+  'mailer/smtp_password_undefined' as const;
+
+/**
+ * SharedRequest invalid request JSON format
+ * (ShortcodeService)
+ */
+export const SHORTCODE_INVALID_REQUEST_JSON =
+  'shortcode/request_invalid_format' as const;
+
+/**
+ * SharedRequest invalid properties JSON format
+ * (ShortcodeService)
+ */
+export const SHORTCODE_INVALID_PROPERTIES_JSON =
+  'shortcode/properties_invalid_format' as const;
+
+/**
+ * SharedRequest invalid properties not found
+ * (ShortcodeService)
+ */
+export const SHORTCODE_PROPERTIES_NOT_FOUND =
+  'shortcode/properties_not_found' as const;
+
+/**
+ * Infra Config not found
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_NOT_FOUND = 'infra_config/not_found' as const;
+
+/**
+ * Infra Config update failed
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_UPDATE_FAILED = 'infra_config/update_failed' as const;
+
+/**
+ * Infra Config not listed for onModuleInit creation
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_NOT_LISTED =
+  'infra_config/properly_not_listed' as const;
+
+/**
+ * Infra Config reset failed
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_RESET_FAILED = 'infra_config/reset_failed' as const;
+
+/**
+ * Infra Config invalid input for Config variable
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_INVALID_INPUT = 'infra_config/invalid_input' as const;
+
+/**
+ * Infra Config service (auth provider/mailer/audit logs) not configured
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_SERVICE_NOT_CONFIGURED =
+  'infra_config/service_not_configured' as const;
+
+/**
+ * Infra Config update/fetch operation not allowed
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_OPERATION_NOT_ALLOWED =
+  'infra_config/operation_not_allowed';
+
+/**
+ * Error message for when the onboarding status fetch fails
+ * (InfraConfigService)
+ */
+export const INFRA_CONFIG_FETCH_FAILED = 'infra_config/fetch_failed' as const;
+
+/**
+ * Onboarding has already been completed and cannot be re-run
+ * (OnboardingController)
+ */
+export const ONBOARDING_CANNOT_BE_RERUN = 'onboarding/cannot_be_rerun' as const;
+
+/**
+ * Error message for when the database table does not exist
+ * (InfraConfigService)
+ */
+export const DATABASE_TABLE_NOT_EXIST =
+  'Database migration not found. Please check the documentation for assistance: https://docs.hoppscotch.io/documentation/self-host/community-edition/install-and-build#running-migrations';
+
+/**
+ * PostHog client is not initialized
+ * (InfraConfigService)
+ */
+export const POSTHOG_CLIENT_NOT_INITIALIZED = 'posthog/client_not_initialized';
+
+/**
+ * Inputs supplied are invalid
+ */
+export const INVALID_PARAMS = 'invalid_parameters' as const;
+
+/**
+ * The provided label for the access-token is short (less than 3 characters)
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_LABEL_SHORT = 'access_token/label_too_short';
+
+/**
+ * The provided expiryInDays value is not valid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_EXPIRY_INVALID = 'access_token/expiry_days_invalid';
+
+/**
+ * The provided PAT ID is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_NOT_FOUND = 'access_token/access_token_not_found';
+
+/**
+ * AccessTokens is expired
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_EXPIRED = 'TOKEN_EXPIRED';
+
+/**
+ * AccessTokens is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKEN_INVALID = 'TOKEN_INVALID';
+
+/**
+ * AccessTokens is invalid
+ * (AccessTokenService)
+ */
+export const ACCESS_TOKENS_INVALID_DATA_ID = 'INVALID_ID';
+
+/**
+ * The provided label for the infra-token is short (less than 3 characters)
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_LABEL_SHORT = 'infra_token/label_too_short';
+
+/**
+ * The provided expiryInDays value is not valid
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_EXPIRY_INVALID = 'infra_token/expiry_days_invalid';
+
+/**
+ * The provided Infra Token ID is invalid
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_NOT_FOUND = 'infra_token/infra_token_not_found';
+
+/**
+ * Authorization missing in header (Check 'Authorization' Header)
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_HEADER_MISSING =
+  'infra_token/authorization_token_missing';
+
+/**
+ * Infra Token is invalid
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_INVALID_TOKEN = 'infra_token/invalid_token';
+
+/**
+ * Infra Token is expired
+ * (InfraTokenGuard)
+ */
+export const INFRA_TOKEN_EXPIRED = 'infra_token/expired';
+
+/**
+ * Token creator not found
+ * (InfraTokenService)
+ */
+export const INFRA_TOKEN_CREATOR_NOT_FOUND = 'infra_token/creator_not_found';
+
+/**
+ * Mock server not found
+ * (MockServerService)
+ */
+export const MOCK_SERVER_NOT_FOUND = 'mock_server/not_found';
+
+/**
+ * Mock server invalid collection
+ * (MockServerService)
+ */
+export const MOCK_SERVER_INVALID_COLLECTION = 'mock_server/invalid_collection';
+
+/**
+ * Mock server collection creation failed
+ * (MockServerService)
+ */
+export const MOCK_SERVER_COLLECTION_CREATION_FAILED =
+  'mock_server/collection_creation_failed';
+
+/**
+ * Mock server already exists for this collection
+ * (MockServerService)
+ */
+export const MOCK_SERVER_ALREADY_EXISTS = 'mock_server/already_exists';
+
+/**
+ * Mock server creation failed
+ * (MockServerService)
+ */
+export const MOCK_SERVER_CREATION_FAILED = 'mock_server/creation_failed';
+
+/**
+ * Mock server update failed
+ * (MockServerService)
+ */
+export const MOCK_SERVER_UPDATE_FAILED = 'mock_server/update_failed';
+
+/**
+ * Mock server deletion failed
+ * (MockServerService)
+ */
+export const MOCK_SERVER_DELETION_FAILED = 'mock_server/deletion_failed';
+
+/**
+ * Mock server log not found
+ * (MockServerService)
+ */
+export const MOCK_SERVER_LOG_NOT_FOUND = 'mock_server/log_not_found';
+
+/**
+ * Mock server log deletion failed
+ * (MockServerService)
+ */
+export const MOCK_SERVER_LOG_DELETION_FAILED =
+  'mock_server/log_deletion_failed';
+
+/**
+ * Published Docs invalid collection
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_INVALID_COLLECTION =
+  'published_docs/invalid_collection';
+
+/**
+ * Published Docs creation failed
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_CREATION_FAILED = 'published_docs/creation_failed';
+
+/**
+ * Published Docs update failed
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_UPDATE_FAILED = 'published_docs/update_failed';
+
+/**
+ * Published Docs deletion failed
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_DELETION_FAILED = 'published_docs/deletion_failed';
+
+/**
+ * Published Docs invalid environment
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_FORBIDDEN_ENVIRONMENT_ACCESS =
+  'published_docs/forbidden_environment_access';
+
+/**
+ * Published Docs not found
+ * (PublishedDocsService)
+ */
+export const PUBLISHED_DOCS_NOT_FOUND = 'published_docs/not_found';

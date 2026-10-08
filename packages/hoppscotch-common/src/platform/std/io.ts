@@ -13,15 +13,17 @@ export const browserIODef: IOPlatformDef = {
     const url = URL.createObjectURL(file)
 
     a.href = url
-    a.download = pipe(
-      url,
-      S.split("/"),
-      RNEA.last,
-      S.split("#"),
-      RNEA.head,
-      S.split("?"),
-      RNEA.head
-    )
+    a.download =
+      opts.suggestedFilename ??
+      pipe(
+        url,
+        S.split("/"),
+        RNEA.last,
+        S.split("#"),
+        RNEA.head,
+        S.split("?"),
+        RNEA.head
+      )
 
     document.body.appendChild(a)
     a.click()
@@ -33,5 +35,11 @@ export const browserIODef: IOPlatformDef = {
 
     // Browsers provide no way for us to know the save went successfully.
     return Promise.resolve({ type: "unknown" })
+  },
+  openExternalLink(url) {
+    window.open(url, "_blank")
+
+    // Browsers provide no way for us to know the open went successfully.
+    return Promise.resolve()
   },
 }

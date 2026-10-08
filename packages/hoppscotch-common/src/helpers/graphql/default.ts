@@ -1,5 +1,9 @@
 import { parse, print } from "graphql"
-import { HoppGQLRequest, GQL_REQ_SCHEMA_VERSION } from "@hoppscotch/data"
+import {
+  HoppGQLRequest,
+  GQL_REQ_SCHEMA_VERSION,
+  generateUniqueRefId,
+} from "@hoppscotch/data"
 
 const DEFAULT_QUERY = print(
   parse(
@@ -27,7 +31,12 @@ export const getDefaultGQLRequest = (): HoppGQLRequest => ({
 }`,
   query: DEFAULT_QUERY,
   auth: {
-    authType: "none",
+    authType: "inherit",
     authActive: true,
   },
+  _ref_id: generateUniqueRefId("req"),
+  description: null,
+  responses: {},
+  preRequestScript: "",
+  testScript: "",
 })

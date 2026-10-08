@@ -4,14 +4,33 @@ import { computed, reactive, ref, watch, readonly } from "vue"
 import { useStreamStatic } from "~/composables/stream"
 import TeamListAdapter from "~/helpers/teams/TeamListAdapter"
 import { platform } from "~/platform"
-import { min } from "lodash-es"
+import { isEqual, min } from "lodash-es"
+import { TeamAccessRole } from "~/helpers/backend/graphql"
+import { applyLocalState } from "~/newstore/localstate"
+import { TeamCollectionsService } from "./team-collection.service"
+import { DocumentationService } from "./documentation.service"
+import { WorkspaceTabsService } from "./tab/workspace-tabs"
+import {
+  getSelectedEnvironmentIndex,
+  setSelectedEnvironmentIndex,
+} from "~/newstore/environments"
 
 /**
  * Defines a workspace and its information
  */
-export type Workspace =
-  | { type: "personal" }
-  | { type: "team"; teamID: string; teamName: string }
+
+export type PersonalWorkspace = {
+  type: "personal"
+}
+
+export type TeamWorkspace = {
+  type: "team"
+  teamID: string
+  teamName: string
+  role: TeamAccessRole | null | undefined
+}
+
+export type Workspace = PersonalWorkspace | TeamWorkspace
 
 export type WorkspaceServiceEvent = {
   type: "managed-team-list-adapter-polled"
@@ -34,6 +53,10 @@ export class WorkspaceService extends Service<WorkspaceServiceEvent> {
   private teamListAdapterLockTicker = 0 // Used to generate unique lock IDs
   private managedTeamListAdapter = new TeamListAdapter(true, false)
 
+  private teamCollectionService = this.bind(TeamCollectionsService)
+  private documentationService = this.bind(DocumentationService)
+  private workspaceTabsService = this.bind(WorkspaceTabsService)
+
   private currentUser = useStreamStatic(
     platform.auth.getCurrentUserStream(),
     platform.auth.getCurrentUser(),
@@ -48,10 +71,11 @@ export class WorkspaceService extends Service<WorkspaceServiceEvent> {
       -1
   )
 
-  constructor() {
-    super()
-    // Dispose the managed team list adapter when the user logs out
-    // and initialize it when the user logs in
+  override onServiceInit() {
+    // Session-driven state: the managed team list adapter follows login state,
+    // and a team workspace can't outlive the session that granted access to it.
+    // The workspace reset lives here rather than in the workspace selector —
+    // that component only exists while its dropdown is open.
     watch(
       this.currentUser,
       (user) => {
@@ -61,6 +85,11 @@ export class WorkspaceService extends Service<WorkspaceServiceEvent> {
 
         if (user && !this.managedTeamListAdapter.isInitialized) {
           this.managedTeamListAdapter.initialize()
+        }
+
+        if (!user && this._currentWorkspace.value.type === "team") {
+          applyLocalState("REMEMBERED_TEAM_ID", undefined)
+          this.changeWorkspace({ type: "personal" })
         }
       },
       { immediate: true }
@@ -91,6 +120,88 @@ export class WorkspaceService extends Service<WorkspaceServiceEvent> {
       },
       { immediate: true }
     )
+
+    // Watch for workspace changes and update team collection service and documentation service accordingly
+    this.setupWorkspaceSync()
+  }
+
+  /**
+   * Sets up synchronization between team collection service and documentation service.
+   * Ensures that team collections and published docs stay updated whenever
+   * the workspace or user changes.
+   *
+   * Fixes a bug where the initial fetch failed on cloud instances because
+   * authorization was null during user login. Now we wait for authentication
+   * to be ready before fetching team collections and published docs.
+   */
+  private setupWorkspaceSync() {
+    watch(
+      [this._currentWorkspace, this.currentUser],
+      async ([newWorkspace, user], [oldWorkspace, oldUser]) => {
+        // Skip if workspace and user haven't changed
+        if (
+          this.areWorkspacesEqual(newWorkspace, oldWorkspace) &&
+          user?.uid === oldUser?.uid
+        ) {
+          return
+        }
+
+        // Keep the unified tab service aware of which workspace its tabs belong to.
+        // Today this is purely informational; future tab features may scope by workspace.
+        this.workspaceTabsService.attachToWorkspace(newWorkspace)
+
+        try {
+          // Ensure authentication is ready before fetching docs
+          if (user) {
+            await platform.auth.waitProbableLoginToConfirm()
+          }
+
+          if (newWorkspace?.type === "team" && newWorkspace.teamID) {
+            this.teamCollectionService.changeTeamID(newWorkspace.teamID)
+
+            if (user) {
+              await this.documentationService.fetchTeamPublishedDocs(
+                newWorkspace.teamID
+              )
+            }
+          } else {
+            this.teamCollectionService.clearCollections()
+
+            if (user) {
+              await this.documentationService.fetchUserPublishedDocs()
+            }
+          }
+        } catch (error) {
+          console.error("Failed to sync workspace data:", error)
+        }
+      },
+      { immediate: true }
+    )
+  }
+
+  /**
+   * Checks if two workspaces are effectively equal to avoid unnecessary updates
+   *
+   * Note: Vue's watch API provides `undefined` as `oldValue` on the first callback
+   * invocation when using `{ immediate: true }`, since there is no previous value yet.
+   * This is why `oldWorkspace` has an optional type, while `newWorkspace` is always defined.
+   */
+  private areWorkspacesEqual(
+    newWorkspace: Workspace,
+    oldWorkspace?: Workspace
+  ): boolean {
+    if (!newWorkspace || !oldWorkspace) return false
+
+    // Both are personal workspaces
+    if (newWorkspace.type === "personal" && oldWorkspace.type === "personal")
+      return true
+
+    // Team workspaces are equal only if they share the same team ID
+    return (
+      newWorkspace.type === "team" &&
+      oldWorkspace.type === "team" &&
+      newWorkspace.teamID === oldWorkspace.teamID
+    )
   }
 
   // TODO: Update this function, its existence is pretty weird
@@ -108,11 +219,31 @@ export class WorkspaceService extends Service<WorkspaceServiceEvent> {
   }
 
   /**
-   * Changes the current workspace to the given workspace.
+   * Changes the current workspace. Re-selecting the identical workspace is
+   * a no-op (a fresh object would retrigger every workspace watcher), and a
+   * selected team environment not belonging to the target workspace is
+   * reset.
    * @param workspace The new workspace
    */
   public changeWorkspace(workspace: Workspace) {
+    if (isEqual(this._currentWorkspace.value, workspace)) return
+
+    this.resetStaleTeamEnvironment(workspace)
     this._currentWorkspace.value = workspace
+  }
+
+  /**
+   * A selected team environment is scoped to its team — it must not stay
+   * active after switching to personal or to a different team.
+   */
+  private resetStaleTeamEnvironment(workspace: Workspace) {
+    const envIndex = getSelectedEnvironmentIndex()
+    if (
+      envIndex.type === "TEAM_ENV" &&
+      (workspace.type === "personal" || workspace.teamID !== envIndex.teamID)
+    ) {
+      setSelectedEnvironmentIndex({ type: "NO_ENV_SELECTED" })
+    }
   }
 
   /**

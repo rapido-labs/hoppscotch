@@ -1,35 +1,33 @@
 <template>
   <div class="flex items-center justify-between px-4 py-2">
-    <div class="flex items-center flex-shrink flex-shrink-0 overflow-x-auto">
+    <div class="flex flex-shrink items-center overflow-x-auto">
       <component
         :is="getIcon(status)"
         v-tippy="{ theme: 'tooltip' }"
-        class="mr-4 svg-icons cursor-help"
+        class="svg-icons mr-4 cursor-help"
         :class="getStyle(status)"
         :title="`${t(getTooltip(status))}`"
       />
-      <div
-        class="flex items-center flex-shrink flex-shrink-0 space-x-2 overflow-x-auto"
-      >
+      <div class="flex flex-shrink items-center space-x-2 overflow-x-auto">
         <span class="inline-flex text-secondaryDark">
           {{ env.key }}
         </span>
         <span class="inline-flex text-secondaryDark">
-          <icon-lucide-minus class="mr-2 svg-icons" />
-          {{ env.value }}
+          <icon-lucide-minus class="svg-icons mr-2" />
+          {{ env.currentValue }}
         </span>
         <span
           v-if="status === 'updations'"
           class="inline-flex text-secondaryLight"
         >
-          <icon-lucide-arrow-left class="mr-2 svg-icons" />
+          <icon-lucide-arrow-left class="svg-icons mr-2" />
           {{ env.previousValue }}
         </span>
       </div>
     </div>
     <span
       v-if="global"
-      class="px-1 ml-4 rounded bg-accentLight text-accentContrast text-tiny"
+      class="ml-4 rounded bg-accentLight px-1 text-tiny text-accentContrast"
     >
       Global
     </span>
@@ -47,11 +45,11 @@ type Status = "updations" | "additions" | "deletions"
 type Props = {
   env: {
     key: string
-    value: string
+    currentValue: string
     previousValue?: string
   }
   status: Status
-  global: boolean
+  global?: boolean
 }
 
 withDefaults(defineProps<Props>(), {

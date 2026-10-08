@@ -9,6 +9,8 @@ import {
 
 import IconDownload from "~icons/lucide/download"
 import IconCopy from "~icons/lucide/copy"
+import IconNetwork from "~icons/lucide/network"
+import { Container } from "dioc"
 
 type Doc = {
   text: string
@@ -39,6 +41,8 @@ export class ResponseSpotlightSearcherService extends StaticSpotlightSearcherSer
     "response.file.download"
   )
 
+  private dataSchemaActionEnabled = isActionBound("response.schema.toggle")
+
   private documents: Record<string, Doc> = reactive({
     copy_response: {
       text: this.t("spotlight.response.copy"),
@@ -54,17 +58,26 @@ export class ResponseSpotlightSearcherService extends StaticSpotlightSearcherSer
         () => !this.downloadResponseActionEnabled.value
       ),
     },
+    generate_data_schema: {
+      text: this.t("response.generate_data_schema"),
+      alternates: ["generate", "data", "schema", "typescript", "response"],
+      icon: markRaw(IconNetwork),
+      excludeFromSearch: computed(() => !this.dataSchemaActionEnabled.value),
+    },
   })
 
-  constructor() {
-    super({
+  // TODO: Constructors are no longer recommended as of dioc > 3, move to onServiceInit
+  constructor(c: Container) {
+    super(c, {
       searchFields: ["text", "alternates"],
       fieldWeights: {
         text: 2,
         alternates: 1,
       },
     })
+  }
 
+  override onServiceInit() {
     this.setDocuments(this.documents)
     this.spotlight.registerSearcher(this)
   }
@@ -83,5 +96,6 @@ export class ResponseSpotlightSearcherService extends StaticSpotlightSearcherSer
   public onDocSelected(id: string): void {
     if (id === "copy_response") invokeAction(`response.copy`)
     if (id === "download_response") invokeAction(`response.file.download`)
+    if (id === "generate_data_schema") invokeAction(`response.schema.toggle`)
   }
 }

@@ -1,5 +1,6 @@
 {
   "action": {
+    "add": "Add",
     "autoscroll": "Autoscroll",
     "cancel": "Annulla",
     "choose_file": "Scegli un file",
@@ -10,6 +11,7 @@
     "connect": "Connetti",
     "connecting": "Connecting",
     "copy": "Copia",
+    "create": "Create",
     "delete": "Elimina",
     "disconnect": "Disconnetti",
     "dismiss": "Abbandona",
@@ -22,8 +24,10 @@
     "go_back": "Torna indietro",
     "go_forward": "Go forward",
     "group_by": "Group by",
+    "hide_secret": "Hide secret",
     "label": "Etichetta",
     "learn_more": "Per saperne di più",
+    "download_here": "Download here",
     "less": "Less",
     "more": "Di più",
     "new": "Nuovo",
@@ -31,6 +35,7 @@
     "open_workspace": "Open workspace",
     "paste": "Paste",
     "prettify": "Abbellisci",
+    "properties": "Properties",
     "remove": "Rimuovi",
     "rename": "Rename",
     "restore": "Ripristina",
@@ -39,6 +44,8 @@
     "scroll_to_top": "Scroll to top",
     "search": "Cerca",
     "send": "Invia",
+    "share": "Share",
+    "show_secret": "Show secret",
     "start": "Avvia",
     "starting": "Starting",
     "stop": "Interrompi",
@@ -57,7 +64,9 @@
   "app": {
     "chat_with_us": "Chatta con noi",
     "contact_us": "Contattaci",
+    "cookies": "Cookies",
     "copy": "Copia",
+    "copy_interface_type": "Copy interface type",
     "copy_user_id": "Copy User Auth Token",
     "developer_option": "Developer options",
     "developer_option_description": "Developer tools which helps in development and maintenance of Hoppscotch.",
@@ -73,6 +82,7 @@
     "keyboard_shortcuts": "Tasti rapidi",
     "name": "Hoppscotch",
     "new_version_found": "Nuova versione trovata. Aggiorna la pagina per aggiornare.",
+    "open_in_hoppscotch": "Open in Hoppscotch",
     "options": "Options",
     "proxy_privacy_policy": "Informativa sulla privacy del proxy",
     "reload": "Ricarica",
@@ -88,14 +98,18 @@
     "twitter": "Twitter",
     "type_a_command_search": "Digita un comando o cerca...",
     "we_use_cookies": "Utilizziamo i cookie",
+    "updated_text": "Hoppscotch has been updated to v{version} 🎉",
     "whats_new": "Cosa c'è di nuovo?",
+    "see_whats_new": "See what’s new",
     "wiki": "Wiki"
   },
   "auth": {
     "account_exists": "L'account esiste con credenziali diverse - Accedi per collegare entrambi gli account",
     "all_sign_in_options": "Tutte le opzioni di accesso",
+    "continue_with_auth_provider": "Continue with {provider}",
     "continue_with_email": "Continua con e-mail",
     "continue_with_github": "Continua con GitHub",
+    "continue_with_github_enterprise": "Continue with GitHub Enterprise",
     "continue_with_google": "Continua con Google",
     "continue_with_microsoft": "Continue with Microsoft",
     "email": "E-mail",
@@ -112,10 +126,48 @@
   },
   "authorization": {
     "generate_token": "Genera token",
+    "graphql_headers": "Authorization Headers are sent as part of the payload to connection_init",
     "include_in_url": "Includi nell'URL",
+    "inherited_from": "Inherited from {auth} from Parent Collection {collection} ",
     "learn": "Impara come",
+    "oauth": {
+      "redirect_auth_server_returned_error": "Auth Server returned an error state",
+      "redirect_auth_token_request_failed": "Request to get the auth token failed",
+      "redirect_auth_token_request_invalid_response": "Invalid Response from the Token Endpoint when requesting for an auth token",
+      "redirect_invalid_state": "Invalid State value present in the redirect",
+      "redirect_no_auth_code": "No Authorization Code present in the redirect",
+      "redirect_no_client_id": "No Client ID defined",
+      "redirect_no_client_secret": "No Client Secret Defined",
+      "redirect_no_code_verifier": "No Code Verifier Defined",
+      "redirect_no_token_endpoint": "No Token Endpoint Defined",
+      "something_went_wrong_on_oauth_redirect": "Something went wrong during OAuth Redirect",
+      "something_went_wrong_on_token_generation": "Something went wrong on token generation",
+      "token_generation_oidc_discovery_failed": "Failure on token generation: OpenID Connect Discovery Failed",
+      "grant_type": "Grant Type",
+      "grant_type_auth_code": "Authorization Code",
+      "token_fetched_successfully": "Token fetched successfully",
+      "token_fetch_failed": "Failed to fetch token",
+      "validation_failed": "Validation Failed, please check the form fields",
+      "label_authorization_endpoint": "Authorization Endpoint",
+      "label_client_id": "Client ID",
+      "label_client_secret": "Client Secret",
+      "label_code_challenge": "Code Challenge",
+      "label_code_challenge_method": "Code Challenge Method",
+      "label_code_verifier": "Code Verifier",
+      "label_scopes": "Scopes",
+      "label_token_endpoint": "Token Endpoint",
+      "label_use_pkce": "Use PKCE",
+      "label_implicit": "Implicit",
+      "label_password": "Password",
+      "label_username": "Username",
+      "label_auth_code": "Authorization Code",
+      "label_client_credentials": "Client Credentials"
+    },
     "pass_key_by": "Pass by",
+    "pass_by_query_params_label": "Query Parameters",
+    "pass_by_headers_label": "Headers",
     "password": "Password",
+    "save_to_inherit": "Please save this request in any collection to inherit the authorization",
     "token": "Token",
     "type": "Tipo di autorizzazione",
     "username": "Nome utente"
@@ -124,6 +176,8 @@
     "created": "Raccolta creata",
     "different_parent": "Cannot reorder collection with different parent",
     "edit": "Modifica raccolta",
+    "import_or_create": "Import or create a collection",
+    "import_collection": "Import Collection",
     "invalid_name": "Si prega di fornire un nome valido per la raccolta",
     "invalid_root_move": "Collection already in the root",
     "moved": "Moved Successfully",
@@ -132,12 +186,15 @@
     "name_length_insufficient": "Collection name should be at least 3 characters long",
     "new": "Nuova raccolta",
     "order_changed": "Collection Order Updated",
+    "properties": "Collection Properties",
+    "properties_updated": "Collection Properties Updated",
     "renamed": "Raccolta rinominata",
     "request_in_use": "Request in use",
     "save_as": "Salva come",
     "save_to_collection": "Save to Collection",
     "select": "Seleziona una raccolta",
     "select_location": "Seleziona la posizione",
+    "details": "Details",
     "select_team": "Seleziona un team",
     "team_collections": "Raccolte di team"
   },
@@ -151,16 +208,36 @@
     "remove_folder": "Sei sicuro di voler eliminare definitivamente questa cartella?",
     "remove_history": "Sei sicuro di voler eliminare definitivamente tutta la cronologia?",
     "remove_request": "Sei sicuro di voler eliminare definitivamente questa richiesta?",
+    "remove_shared_request": "Are you sure you want to permanently delete this shared request?",
     "remove_team": "Sei sicuro di voler eliminare questo team?",
     "remove_telemetry": "Sei sicuro di voler disattivare la telemetria?",
     "request_change": "Are you sure you want to discard current request, unsaved changes will be lost.",
     "save_unsaved_tab": "Do you want to save changes made in this tab?",
-    "sync": "Vuoi ripristinare il tuo spazio di lavoro con quello del cloud? Questo annullerà le tue modifiche fatte in locale."
+    "sync": "Vuoi ripristinare il tuo spazio di lavoro con quello del cloud? Questo annullerà le tue modifiche fatte in locale.",
+    "delete_access_token": "Are you sure you want to delete the access token {tokenLabel}?"
   },
   "context_menu": {
     "add_parameters": "Add to parameters",
     "open_request_in_new_tab": "Open request in new tab",
     "set_environment_variable": "Set as variable"
+  },
+  "cookies": {
+    "modal": {
+      "cookie_expires": "Expires",
+      "cookie_name": "Name",
+      "cookie_path": "Path",
+      "cookie_string": "Cookie string",
+      "cookie_value": "Value",
+      "empty_domain": "Domain is empty",
+      "empty_domains": "Domain list is empty",
+      "enter_cookie_string": "Enter cookie string",
+      "interceptor_no_support": "Your currently selected interceptor does not support cookies. Select a different Interceptor and try again.",
+      "managed_tab": "Managed",
+      "new_domain_name": "New domain name",
+      "no_cookies_in_domain": "No cookies set for this domain",
+      "raw_tab": "Raw",
+      "set": "Set a cookie"
+    }
   },
   "count": {
     "header": "Intestazione {count}",
@@ -191,12 +268,17 @@
     "pending_invites": "Non ci sono inviti pendenti per questo team",
     "profile": "Accedi per mostrare il tuo profilo",
     "protocols": "I protocolli sono vuoti",
+    "request_variables": "This request does not have any request variables",
     "schema": "Connettiti a un endpoint GraphQL per mostrare lo schema",
-    "shortcodes": "Shortcodes are empty",
+    "secret_environments": "Secrets are not synced to Hoppscotch",
+    "shared_requests": "Shared requests are empty",
+    "shared_requests_logout": "Login to view your shared requests or create a new one",
     "subscription": "Subscriptions are empty",
     "team_name": "Il nome del team è vuoto",
     "teams": "I team sono vuoti",
-    "tests": "Non ci sono test per questa richiesta"
+    "tests": "Non ci sono test per questa richiesta",
+    "access_tokens": "Access tokens are empty",
+    "shortcodes": "Shortcodes are empty"
   },
   "environment": {
     "add_to_global": "Add to Global",
@@ -209,6 +291,7 @@
     "empty_variables": "No variables",
     "global": "Global",
     "global_variables": "Global variables",
+    "import_or_create": "Import or create a environment",
     "invalid_name": "Si prega di fornire un nome valido per l'ambiente",
     "list": "Environment variables",
     "my_environments": "My Environments",
@@ -221,6 +304,8 @@
     "quick_peek": "Environment Quick Peek",
     "replace_with_variable": "Replace with variable",
     "scope": "Scope",
+    "secrets": "Secrets",
+    "secret_value": "Secret value",
     "select": "Seleziona ambiente",
     "set": "Set environment",
     "set_as_environment": "Set as environment",
@@ -229,15 +314,22 @@
     "updated": "Environment updation",
     "value": "Value",
     "variable": "Variable",
-    "variable_list": "Elenco variabili"
+    "variables": "Variables",
+    "variable_list": "Elenco variabili",
+    "properties": "Environment Properties",
+    "details": "Details"
   },
   "error": {
+    "authproviders_load_error": "Unable to load auth providers",
     "browser_support_sse": "Questo browser non sembra supportare gli eventi inviati dal server (Server Sent Events).",
     "check_console_details": "Controlla il log della console per i dettagli.",
+    "check_how_to_add_origin": "Check how you can add an origin",
     "curl_invalid_format": "cURL non è formattato correttamente",
     "danger_zone": "Danger zone",
     "delete_account": "Your account is currently an owner in these teams:",
     "delete_account_description": "You must either remove yourself, transfer ownership, or delete these teams before you can delete your account.",
+    "empty_email_address": "Email Address cannot be empty",
+    "empty_profile_name": "Profile name cannot be empty",
     "empty_req_name": "Nome richiesta vuoto",
     "f12_details": "(F12 per i dettagli)",
     "gql_prettify_invalid_query": "Impossibile abbellire una query non valida, risolvere gli errori di sintassi della query e riprovare",
@@ -245,24 +337,38 @@
     "incorrect_email": "Indirizzo email errato",
     "invalid_link": "Invalid link",
     "invalid_link_description": "The link you clicked is invalid or expired.",
+    "invalid_embed_link": "The embed does not exist or is invalid.",
     "json_parsing_failed": "Invalid JSON",
     "json_prettify_invalid_body": "Impossibile abbellire un corpo non valido, risolvere gli errori di sintassi JSON e riprovare",
     "network_error": "Sembra ci sia un problema di rete. Per favore prova di nuovo.",
     "network_fail": "Impossibile inviare la richiesta",
+    "no_collections_to_export": "No collections to export. Please create a collection to get started.",
     "no_duration": "Nessuna durata",
+    "no_environments_to_export": "No environments to export. Please create an environment to get started.",
     "no_results_found": "No matches found",
     "page_not_found": "This page could not be found",
+    "please_install_extension": "Please install the extension and add origin to the extension.",
     "proxy_error": "Proxy error",
+    "same_email_address": "Updated email address is same as the current email address",
+    "same_profile_name": "Updated profile name is same as the current profile name",
     "script_fail": "Impossibile eseguire lo script di pre-richiesta",
     "something_went_wrong": "Qualcosa è andato storto",
-    "test_script_fail": "Could not execute post-request script"
+    "post_request_script_fail": "Could not execute post-request script",
+    "reading_files": "Error while reading one or more files.",
+    "fetching_access_tokens_list": "Something went wrong while fetching the list of tokens",
+    "generate_access_token": "Something went wrong while generating the access token",
+    "delete_access_token": "Something went wrong while deleting the access token"
   },
   "export": {
     "as_json": "Esporta come JSON",
     "create_secret_gist": "Crea un Gist segreto",
-    "gist_created": "Gist creato",
+    "create_secret_gist_tooltip_text": "Export as secret Gist",
+    "failed": "Something went wrong while exporting",
+    "secret_gist_success": "Successfully exported as secret Gist",
     "require_github": "Accedi con GitHub per creare un Gist segreto",
-    "title": "Export"
+    "title": "Export",
+    "success": "Successfully exported",
+    "gist_created": "Gist creato"
   },
   "filter": {
     "all": "All",
@@ -284,7 +390,11 @@
     "mutations": "Mutazioni",
     "schema": "Schema",
     "subscriptions": "Sottoscrizioni",
-    "switch_connection": "Switch connection"
+    "switch_connection": "Switch connection",
+    "url_placeholder": "Enter a GraphQL endpoint URL"
+  },
+  "graphql_collections": {
+    "title": "GraphQL Collections"
   },
   "group": {
     "time": "Time",
@@ -297,6 +407,8 @@
   },
   "helpers": {
     "authorization": "L'intestazione di autorizzazione verrà generata automaticamente quando invii la richiesta.",
+    "collection_properties_authorization": " This authorization will be set for every request in this collection.",
+    "collection_properties_header": "This header will be set for every request in this collection.",
     "generate_documentation_first": "Generare prima la documentazione",
     "network_fail": "Impossibile raggiungere l'endpoint API. Controlla la tua connessione di rete o accendi il Proxy Interceptor e riprova.",
     "offline": "Sembra che tu sia offline. I dati in questo spazio di lavoro potrebbero non essere aggiornati.",
@@ -304,8 +416,8 @@
     "post_request_tests": "Gli script di test sono scritti in JavaScript e vengono eseguiti dopo aver ricevuto la risposta.",
     "pre_request_script": "Gli script di pre-richiesta sono scritti in JavaScript e vengono eseguiti prima dell'invio della richiesta.",
     "script_fail": "Sembra che ci sia un errore nello script di pre-richiesta. Controllare l&#39;errore di seguito e correggere lo script di conseguenza.",
-    "test_script_fail": "There seems to be an error with test script. Please fix the errors and run tests again",
-    "tests": "Scrivi uno script di test per automatizzare il debug."
+    "post_request_script_fail": "There seems to be an error with post-request script. Please fix the errors and run tests again",
+    "post_request_script": "Scrivi uno script di test per automatizzare il debug."
   },
   "hide": {
     "collection": "Collapse Collection Panel",
@@ -316,7 +428,10 @@
   "import": {
     "collections": "Importa raccolte",
     "curl": "Importa cURL",
+    "environments_from_gist": "Import From Gist",
+    "environments_from_gist_description": "Import Hoppscotch Environments From Gist",
     "failed": "Importazione non riuscita",
+    "from_file": "Import from File",
     "from_gist": "Importa da Gist",
     "from_gist_description": "Import from Gist URL",
     "from_insomnia": "Import from Insomnia",
@@ -331,17 +446,28 @@
     "from_postman_description": "Import from Postman collection",
     "from_url": "Import from URL",
     "gist_url": "Inserisci l'URL del Gist",
+    "gql_collections_from_gist_description": "Import GraphQL Collections From Gist",
+    "hoppscotch_environment": "Hoppscotch Environment",
+    "hoppscotch_environment_description": "Import Hoppscotch Environment JSON file",
     "import_from_url_invalid_fetch": "Couldn't get data from the url",
     "import_from_url_invalid_file_format": "Error while importing collections",
     "import_from_url_invalid_type": "Unsupported type. accepted values are 'hoppscotch', 'openapi', 'postman', 'insomnia'",
     "import_from_url_success": "Collections Imported",
+    "insomnia_environment_description": "Import Insomnia Environment from a JSON/YAML file",
     "json_description": "Import collections from a Hoppscotch Collections JSON file",
-    "title": "Importa"
+    "postman_environment": "Postman Environment",
+    "postman_environment_description": "Import Postman Environment from a JSON file",
+    "title": "Importa",
+    "file_size_limit_exceeded_warning_multiple_files": "Chosen files exceed the recommended limit of 10MB. Only the first {files} selected will be imported",
+    "file_size_limit_exceeded_warning_single_file": "The currently chosen file exceeds the recommended limit of 10MB. Please select another file.",
+    "success": "Successfully imported"
   },
   "inspections": {
     "description": "Inspect possible errors",
     "environment": {
       "add_environment": "Add to Environment",
+      "add_environment_value": "Add value",
+      "empty_value": "Environment value is empty for the variable '{variable}' ",
       "not_found": "Environment variable “{environment}” not found."
     },
     "header": {
@@ -373,8 +499,10 @@
     "close_unsaved_tab": "You have unsaved changes",
     "collections": "Raccolte",
     "confirm": "Conferma",
+    "customize_request": "Customize Request",
     "edit_request": "Modifica richiesta",
-    "import_export": "Importa/Esporta"
+    "import_export": "Importa/Esporta",
+    "share_request": "Share Request"
   },
   "mqtt": {
     "already_subscribed": "You are already subscribed to this topic.",
@@ -449,13 +577,14 @@
       "structured": "Structured",
       "text": "Text"
     },
-    "copy_link": "Copia collegamento",
     "different_collection": "Cannot reorder requests from different collections",
     "duplicated": "Request duplicated",
     "duration": "Durata",
     "enter_curl": "Inserisci cURL",
     "generate_code": "Genera codice",
     "generated_code": "Codice generato",
+    "go_to_authorization_tab": "Go to Authorization tab",
+    "go_to_body_tab": "Go to Body tab",
     "header_list": "Elenco intestazioni",
     "invalid_name": "Si prega di fornire un nome per la richiesta",
     "method": "Metodo",
@@ -474,23 +603,27 @@
     "raw_body": "Corpo della richiesta non formattato",
     "rename": "Rename Request",
     "renamed": "Richiesta rinominata",
+    "request_variables": "Request variables",
     "run": "Esegui",
     "save": "Salva",
     "save_as": "Salva come",
     "saved": "Richiesta salvata",
     "share": "Condividi",
     "share_description": "Share Hoppscotch with your friends",
+    "share_request": "Share Request",
     "stop": "Stop",
     "title": "Richiesta",
     "type": "Tipo di richiesta",
     "url": "URL",
+    "url_placeholder": "Enter a URL or paste a cURL command",
     "variables": "Variabili",
-    "view_my_links": "View my links"
+    "view_my_links": "View my links",
+    "copy_link": "Copia collegamento"
   },
   "response": {
     "audio": "Audio",
     "body": "Corpo della risposta",
-    "filter_response_body": "Filter JSON response body (uses JSONPath syntax)",
+    "filter_response_body": "Filter JSON response body (uses jq syntax)",
     "headers": "Intestazioni",
     "html": "HTML",
     "image": "Immagine",
@@ -513,6 +646,7 @@
     "account_description": "Personalizza le impostazioni del tuo account.",
     "account_email_description": "Il tuo indirizzo email principale.",
     "account_name_description": "Questo è il tuo nome mostrato.",
+    "additional": "Additional Settings",
     "background": "Sfondo",
     "black_mode": "Nero",
     "choose_language": "Scegli la lingua",
@@ -559,14 +693,31 @@
     "verified_email": "Verified email",
     "verify_email": "Verify email"
   },
-  "shortcodes": {
-    "actions": "Actions",
-    "created_on": "Created on",
-    "deleted": "Shortcode deleted",
-    "method": "Method",
-    "not_found": "Shortcode not found",
-    "short_code": "Short code",
-    "url": "URL"
+  "shared_requests": {
+    "button": "Button",
+    "button_info": "Create a 'Run in Hoppscotch' button for your website, blog or a README.",
+    "copy_html": "Copy HTML",
+    "copy_link": "Copy Link",
+    "copy_markdown": "Copy Markdown",
+    "creating_widget": "Creating widget",
+    "customize": "Customize",
+    "deleted": "Shared request deleted",
+    "description": "Select a widget, you can change and customize this later",
+    "embed": "Embed",
+    "embed_info": "Add a mini 'Hoppscotch API Playground' to your website, blog or documentation.",
+    "link": "Link",
+    "link_info": "Create a shareable link to share with anyone on the internet with view access.",
+    "modified": "Shared request modified",
+    "not_found": "Shared request not found",
+    "open_new_tab": "Open in new tab",
+    "preview": "Preview",
+    "run_in_hoppscotch": "Run in Hoppscotch",
+    "theme": {
+      "dark": "Dark",
+      "light": "Light",
+      "system": "System",
+      "title": "Theme"
+    }
   },
   "shortcut": {
     "general": {
@@ -596,7 +747,6 @@
       "title": "Others"
     },
     "request": {
-      "copy_request_link": "Copia il link alla richiesta",
       "delete_method": "Seleziona il metodo DELETE",
       "get_method": "Seleziona il metodo GET",
       "head_method": "Seleziona il metodo HEAD",
@@ -611,8 +761,10 @@
       "save_request": "Save Request",
       "save_to_collections": "Salva nelle raccolte",
       "send_request": "Invia richiesta",
+      "share_request": "Share Request",
       "show_code": "Generate code snippet",
-      "title": "Richiesta"
+      "title": "Richiesta",
+      "copy_request_link": "Copia il link alla richiesta"
     },
     "response": {
       "copy": "Copy response to clipboard",
@@ -718,6 +870,13 @@
       "new": "Create new team",
       "switch_to_personal": "Switch to your personal workspace",
       "title": "Teams"
+    },
+    "phrases": {
+      "try": "Try",
+      "import_collections": "Import collections",
+      "create_environment": "Create environment",
+      "create_workspace": "Create workspace",
+      "share_request": "Share request"
     }
   },
   "sse": {
@@ -735,6 +894,7 @@
     "connection_error": "Failed to connect",
     "connection_failed": "Connection failed",
     "connection_lost": "Connection lost",
+    "copied_interface_to_clipboard": "Copied {language} interface type to clipboard",
     "copied_to_clipboard": "Copiato negli appunti",
     "deleted": "Eliminato",
     "deprecated": "DEPRECATO",
@@ -742,10 +902,12 @@
     "disconnected": "Disconnesso",
     "disconnected_from": "Disconnesso da {name}",
     "docs_generated": "Documentazione generata",
+    "download_failed": "Download failed",
     "download_started": "Download avviato",
     "enabled": "Abilitato",
     "file_imported": "File importato",
     "finished_in": "Finito in {duration} ms",
+    "hide": "Hide",
     "history_deleted": "Cronologia cancellata",
     "linewrap": "Testo a capo",
     "loading": "Caricamento in corso...",
@@ -756,6 +918,7 @@
     "published_error": "Something went wrong while publishing msg: {topic} to topic: {message}",
     "published_message": "Published message: {message} to topic: {topic}",
     "reconnection_error": "Failed to reconnect",
+    "show": "Show",
     "subscribed_failed": "Failed to subscribe to topic: {topic}",
     "subscribed_success": "Successfully subscribed to topic: {topic}",
     "unsubscribed_failed": "Failed to unsubscribe from topic: {topic}",
@@ -770,9 +933,9 @@
     "forum": "Fai domande e ottieni risposte",
     "github": "Follow us on Github",
     "shortcuts": "Naviga nella app più velocemente",
-    "team": "Mettiti in contatto con il team",
     "title": "Supporto",
-    "twitter": "Seguici su Twitter"
+    "twitter": "Seguici su Twitter",
+    "team": "Mettiti in contatto con il team"
   },
   "tab": {
     "authorization": "Autorizzazione",
@@ -791,6 +954,10 @@
     "queries": "Query",
     "query": "Query",
     "schema": "Schema",
+    "shared_requests": "Shared Requests",
+    "codegen": "Generate Code",
+    "code_snippet": "Code snippet",
+    "share_tab_request": "Share tab request",
     "socketio": "Socket.IO",
     "sse": "SSE",
     "tests": "Test",
@@ -807,6 +974,7 @@
     "email_do_not_match": "L'indirizzo email non corrisponde a quella del tuo account. Contatta il proprietario del team.",
     "exit": "Lascia il team",
     "exit_disabled": "Solo il proprietario non può lasciare il team",
+    "failed_invites": "Failed invites",
     "invalid_coll_id": "Invalid collection ID",
     "invalid_email_format": "Il formato dell'email non è valido",
     "invalid_id": "L'ID del team non è valido. Contatta il proprietario del team.",
@@ -818,7 +986,6 @@
     "invite_tooltip": "Invita persone in questo spazio di lavoro",
     "invited_to_team": "{owner} ti ha invitato ad unirti al team {team}",
     "join": "Invito accettato",
-    "join_beta": "Partecipa al programma beta per accedere ai team.",
     "join_team": "Unisciti al team {team}",
     "joined_team": "Sei parte del team {team}",
     "joined_team_description": "Ora sei un membro di questo team",
@@ -848,9 +1015,15 @@
     "same_target_destination": "Same target and destination",
     "saved": "Team salvato",
     "select_a_team": "Seleziona un team",
+    "success_invites": "Success invites",
     "title": "Team",
     "we_sent_invite_link": "Abbiamo inviato un link di invito a tutti gli invitati!",
-    "we_sent_invite_link_description": "Chiedi a tutti gli invitati di controllare la loro casella email. Cliccando sul link possono entrare nel team."
+    "invite_sent_smtp_disabled": "Invite links generated",
+    "we_sent_invite_link_description": "Chiedi a tutti gli invitati di controllare la loro casella email. Cliccando sul link possono entrare nel team.",
+    "invite_sent_smtp_disabled_description": "Sending invite emails is disabled for this instance of Hoppscotch. Please use the Copy link button to copy and share the invite link manually.",
+    "copy_invite_link": "Copy Invite Link",
+    "search_title": "Team Requests",
+    "join_beta": "Partecipa al programma beta per accedere ai team."
   },
   "team_environment": {
     "deleted": "Environment Deleted",
@@ -877,7 +1050,57 @@
   "workspace": {
     "change": "Change workspace",
     "personal": "My Workspace",
+    "other_workspaces": "My Workspaces",
     "team": "Team Workspace",
     "title": "Workspaces"
+  },
+  "site_protection": {
+    "login_to_continue": "Login to continue",
+    "login_to_continue_description": "You need to be logged in to access this Hoppscotch Enterprise Instance.",
+    "error_fetching_site_protection_status": "Something Went Wrong While Fetching Site Protection Status"
+  },
+  "access_tokens": {
+    "tab_title": "Tokens",
+    "section_title": "Personal Access Tokens",
+    "section_description": "Personal access tokens currently helps you connect the CLI to your Hoppscotch account",
+    "last_used_on": "Last used on",
+    "expires_on": "Expires on",
+    "no_expiration": "No expiration",
+    "expired": "Expired",
+    "copy_token_warning": "Make sure to copy your personal access token now. You won't be able to see it again!",
+    "token_purpose": "What's this token for?",
+    "expiration_label": "Expiration",
+    "scope_label": "Scope",
+    "workspace_read_only_access": "Read-only access to workspace data.",
+    "personal_workspace_access_limitation": "Personal Access Tokens can't access your personal workspace.",
+    "generate_token": "Generate Token",
+    "invalid_label": "Please provide a label for the token",
+    "no_expiration_verbose": "This token will never expire!",
+    "token_expires_on": "This token will expire on",
+    "generate_new_token": "Generate new token",
+    "generate_modal_title": "New Personal Access Token",
+    "deletion_success": "The access token {label} has been deleted"
+  },
+  "collection_runner": {
+    "collection_id": "Collection ID",
+    "environment_id": "Environment ID",
+    "cli_collection_id_description": "This collection ID will be used by the CLI collection runner for Hoppscotch.",
+    "cli_environment_id_description": "This environment ID will be used by the CLI collection runner for Hoppscotch.",
+    "include_active_environment": "Include active environment:",
+    "cli": "CLI",
+    "ui": "Runner (coming soon)",
+    "cli_command_generation_description_cloud": "Copy the below command and run it from the CLI. Please specify a personal access token.",
+    "cli_command_generation_description_sh": "Copy the below command and run it from the CLI. Please specify a personal access token and verify the generated SH instance server URL.",
+    "cli_command_generation_description_sh_with_server_url_placeholder": "Copy the below command and run it from the CLI. Please specify a personal access token and the SH instance server URL.",
+    "run_collection": "Run collection"
+  },
+  "shortcodes": {
+    "actions": "Actions",
+    "created_on": "Created on",
+    "deleted": "Shortcode deleted",
+    "method": "Method",
+    "not_found": "Shortcode not found",
+    "short_code": "Short code",
+    "url": "URL"
   }
 }

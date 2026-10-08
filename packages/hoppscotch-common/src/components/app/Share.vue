@@ -1,7 +1,6 @@
 <template>
   <HoppSmartModal
     v-if="show"
-    dialog
     :title="t('app.invite_your_friends')"
     @close="hideModal"
   >
@@ -16,13 +15,13 @@
             class="share-link"
             tabindex="0"
           >
-            <component :is="platform.icon" class="w-6 h-6" />
+            <component :is="platform.icon" class="h-6 w-6" />
             <span class="mt-3">
               {{ platform.name }}
             </span>
           </a>
           <button class="share-link" @click="copyAppLink">
-            <component :is="copyIcon" class="w-6 h-6 text-xl" />
+            <component :is="copyIcon" class="h-6 w-6 text-xl" />
             <span class="mt-3">
               {{ t("app.copy") }}
             </span>
@@ -85,7 +84,7 @@ const platforms = [
   {
     name: "Twitter",
     icon: IconTwitter,
-    link: `https://twitter.com/intent/tweet?text=${text} ${description}&url=${url}&via=${twitter}`,
+    link: `https://x.com/intent/tweet?text=${text} ${description}&url=${url}&via=${twitter}`,
   },
   {
     name: "Facebook",
@@ -119,14 +118,14 @@ const hideModal = () => {
 .share-link {
   @apply border border-dividerLight;
   @apply rounded;
-  @apply flex-col flex;
+  @apply flex flex-col;
   @apply p-4;
   @apply items-center;
   @apply justify-center;
   @apply font-semibold;
-  @apply hover: (bg-primaryLight text-secondaryDark);
-  @apply focus: outline-none;
-  @apply focus-visible: border-divider;
+  @apply hover:bg-primaryLight hover:text-secondaryDark;
+  @apply focus:outline-none;
+  @apply focus-visible:border-divider;
 
   svg {
     @apply opacity-80;

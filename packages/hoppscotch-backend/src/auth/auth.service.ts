@@ -3,7 +3,6 @@ import { MailerService } from 'src/mailer/mailer.service';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { VerifyMagicDto } from './dto/verify-magic.dto';
-import { DateTime } from 'luxon';
 import * as argon2 from 'argon2';
 import * as bcrypt from 'bcrypt';
 import * as O from 'fp-ts/Option';
@@ -24,18 +23,22 @@ import {
   RefreshTokenPayload,
 } from 'src/types/AuthTokens';
 import { JwtService } from '@nestjs/jwt';
-import { AuthError } from 'src/types/AuthError';
+import { RESTError } from 'src/types/RESTError';
 import { AuthUser, IsAdmin } from 'src/types/AuthUser';
-import { VerificationToken } from '@prisma/client';
+import { VerificationToken } from 'src/generated/prisma/client';
 import { Origin } from './helper';
+import { ConfigService } from '@nestjs/config';
+import { InfraConfigService } from 'src/infra-config/infra-config.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private usersService: UserService,
-    private prismaService: PrismaService,
-    private jwtService: JwtService,
+    private readonly usersService: UserService,
+    private readonly prisma: PrismaService,
+    private readonly jwtService: JwtService,
     private readonly mailerService: MailerService,
+    private readonly configService: ConfigService,
+    private readonly infraConfigService: InfraConfigService,
   ) {}
 
   /**
@@ -46,14 +49,19 @@ export class AuthService {
    */
   private async generateMagicLinkTokens(user: AuthUser) {
     const salt = await bcrypt.genSalt(
-      parseInt(process.env.TOKEN_SALT_COMPLEXITY),
+      parseInt(this.configService.get('INFRA.TOKEN_SALT_COMPLEXITY')),
     );
-    const expiresOn = DateTime.now()
-      .plus({ hours: parseInt(process.env.MAGIC_LINK_TOKEN_VALIDITY) })
-      .toISO()
-      .toString();
 
-    const idToken = await this.prismaService.verificationToken.create({
+    // Calculate expiration time by adding hours to current time
+    let validityInHours = parseInt(
+      this.configService.get('INFRA.MAGIC_LINK_TOKEN_VALIDITY'),
+    );
+    if (isNaN(validityInHours)) validityInHours = 24; // Default: 24 hours
+
+    const expiresOn = new Date();
+    expiresOn.setHours(expiresOn.getHours() + validityInHours);
+
+    const idToken = await this.prisma.verificationToken.create({
       data: {
         deviceIdentifier: salt,
         userUid: user.uid,
@@ -72,15 +80,14 @@ export class AuthService {
    */
   private async validatePasswordlessTokens(magicLinkTokens: VerifyMagicDto) {
     try {
-      const tokens =
-        await this.prismaService.verificationToken.findUniqueOrThrow({
-          where: {
-            passwordless_deviceIdentifier_tokens: {
-              deviceIdentifier: magicLinkTokens.deviceIdentifier,
-              token: magicLinkTokens.token,
-            },
+      const tokens = await this.prisma.verificationToken.findUniqueOrThrow({
+        where: {
+          passwordless_deviceIdentifier_tokens: {
+            deviceIdentifier: magicLinkTokens.deviceIdentifier,
+            token: magicLinkTokens.token,
           },
-        });
+        },
+      });
       return O.some(tokens);
     } catch (error) {
       return O.none;
@@ -95,23 +102,23 @@ export class AuthService {
    */
   private async generateRefreshToken(userUid: string) {
     const refreshTokenPayload: RefreshTokenPayload = {
-      iss: process.env.VITE_BASE_URL,
+      iss: this.configService.get('VITE_BASE_URL'),
       sub: userUid,
-      aud: [process.env.VITE_BASE_URL],
+      aud: [this.configService.get('VITE_BASE_URL')],
     };
 
     const refreshToken = await this.jwtService.sign(refreshTokenPayload, {
-      expiresIn: process.env.REFRESH_TOKEN_VALIDITY, //7 Days
+      expiresIn: this.configService.get('INFRA.REFRESH_TOKEN_VALIDITY'), //7 Days
     });
 
     const refreshTokenHash = await argon2.hash(refreshToken);
 
-    const updatedUser = await this.usersService.UpdateUserRefreshToken(
+    const updatedUser = await this.usersService.updateUserRefreshToken(
       refreshTokenHash,
       userUid,
     );
     if (E.isLeft(updatedUser))
-      return E.left(<AuthError>{
+      return E.left(<RESTError>{
         message: updatedUser.left,
         statusCode: HttpStatus.NOT_FOUND,
       });
@@ -127,9 +134,9 @@ export class AuthService {
    */
   async generateAuthTokens(userUid: string) {
     const accessTokenPayload: AccessTokenPayload = {
-      iss: process.env.VITE_BASE_URL,
+      iss: this.configService.get('VITE_BASE_URL'),
       sub: userUid,
-      aud: [process.env.VITE_BASE_URL],
+      aud: [this.configService.get('VITE_BASE_URL')],
     };
 
     const refreshToken = await this.generateRefreshToken(userUid);
@@ -137,7 +144,7 @@ export class AuthService {
 
     return E.right(<AuthTokens>{
       access_token: await this.jwtService.sign(accessTokenPayload, {
-        expiresIn: process.env.ACCESS_TOKEN_VALIDITY, //1 Day
+        expiresIn: this.configService.get('INFRA.ACCESS_TOKEN_VALIDITY'), //1 Day
       }),
       refresh_token: refreshToken.right,
     });
@@ -154,7 +161,7 @@ export class AuthService {
   ) {
     try {
       const deletedPasswordlessToken =
-        await this.prismaService.verificationToken.delete({
+        await this.prisma.verificationToken.delete({
           where: {
             passwordless_deviceIdentifier_tokens: {
               deviceIdentifier: passwordlessTokens.deviceIdentifier,
@@ -176,7 +183,7 @@ export class AuthService {
    * @returns Either of existing user provider Account
    */
   async checkIfProviderAccountExists(user: AuthUser, SSOUserData) {
-    const provider = await this.prismaService.account.findUnique({
+    const provider = await this.prisma.account.findUnique({
       where: {
         verifyProviderAccount: {
           provider: SSOUserData.provider,
@@ -218,14 +225,14 @@ export class AuthService {
     let url: string;
     switch (origin) {
       case Origin.ADMIN:
-        url = process.env.VITE_ADMIN_URL;
+        url = this.configService.get('VITE_ADMIN_URL');
         break;
       case Origin.APP:
-        url = process.env.VITE_BASE_URL;
+        url = this.configService.get('VITE_BASE_URL');
         break;
       default:
         // if origin is invalid by default set URL to Hoppscotch-App
-        url = process.env.VITE_BASE_URL;
+        url = this.configService.get('VITE_BASE_URL');
     }
 
     await this.mailerService.sendEmail(email, {
@@ -249,10 +256,9 @@ export class AuthService {
    */
   async verifyMagicLinkTokens(
     magicLinkIDTokens: VerifyMagicDto,
-  ): Promise<E.Right<AuthTokens> | E.Left<AuthError>> {
-    const passwordlessTokens = await this.validatePasswordlessTokens(
-      magicLinkIDTokens,
-    );
+  ): Promise<E.Right<AuthTokens> | E.Left<RESTError>> {
+    const passwordlessTokens =
+      await this.validatePasswordlessTokens(magicLinkIDTokens);
     if (O.isNone(passwordlessTokens))
       return E.left({
         message: INVALID_MAGIC_LINK_DATA,
@@ -290,8 +296,8 @@ export class AuthService {
       );
     }
 
-    const currentTime = DateTime.now().toISO();
-    if (currentTime > passwordlessTokens.value.expiresOn.toISOString())
+    const currentTime = new Date();
+    if (currentTime > passwordlessTokens.value.expiresOn)
       return E.left({
         message: MAGIC_LINK_EXPIRED,
         statusCode: HttpStatus.UNAUTHORIZED,
@@ -313,6 +319,8 @@ export class AuthService {
         message: deletedPasswordlessToken.left,
         statusCode: HttpStatus.NOT_FOUND,
       });
+
+    this.usersService.updateUserLastLoggedOn(passwordlessTokens.value.userUid);
 
     return E.right(tokens.right);
   }
@@ -367,7 +375,7 @@ export class AuthService {
     if (usersCount === 1) {
       const elevatedUser = await this.usersService.makeAdmin(user.uid);
       if (E.isLeft(elevatedUser))
-        return E.left(<AuthError>{
+        return E.left(<RESTError>{
           message: elevatedUser.left,
           statusCode: HttpStatus.NOT_FOUND,
         });
@@ -376,5 +384,9 @@ export class AuthService {
     }
 
     return E.right(<IsAdmin>{ isAdmin: false });
+  }
+
+  getAuthProviders() {
+    return this.infraConfigService.getAllowedAuthProviders();
   }
 }

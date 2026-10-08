@@ -27,6 +27,8 @@ const user: AuthUser = {
   refreshToken: 'hbfvdkhjbvkdvdfjvbnkhjb',
   currentGQLSession: {},
   currentRESTSession: {},
+  lastLoggedOn: currentTime,
+  lastActiveOn: currentTime,
   createdOn: currentTime,
 };
 
@@ -81,7 +83,7 @@ describe('UserSettingsService', () => {
 
       await userSettingsService.createUserSettings(user, settings.properties);
 
-      expect(mockPubSub.publish).toBeCalledWith(
+      expect(mockPubSub.publish).toHaveBeenCalledWith(
         `user_settings/${user.uid}/created`,
         settings,
       );
@@ -124,7 +126,7 @@ describe('UserSettingsService', () => {
 
       await userSettingsService.updateUserSettings(user, settings.properties);
 
-      expect(mockPubSub.publish).toBeCalledWith(
+      expect(mockPubSub.publish).toHaveBeenCalledWith(
         `user_settings/${user.uid}/updated`,
         settings,
       );

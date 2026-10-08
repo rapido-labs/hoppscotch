@@ -6,87 +6,192 @@
     @close="hideModal"
   >
     <template #body>
-      <HoppSmartInput
-        v-model="requestUpdateData.name"
-        placeholder=" "
-        :label="t('action.label')"
-        input-styles="floating-input"
-        @submit="saveRequest"
-      />
-    </template>
-    <template #footer>
-      <span class="flex space-x-2">
-        <HoppButtonPrimary
-          :label="`${t('action.save')}`"
-          outline
-          @click="saveRequest"
+      <div class="flex gap-1">
+        <HoppSmartInput
+          v-model="editingName"
+          class="flex-grow"
+          placeholder=" "
+          :label="t('action.label')"
+          input-styles="floating-input"
+          @submit="saveRequest"
         />
         <HoppButtonSecondary
-          :label="`${t('action.cancel')}`"
-          outline
-          filled
-          @click="hideModal"
+          v-if="canDoRequestNameGeneration"
+          v-tippy="{ theme: 'tooltip' }"
+          :icon="IconSparkle"
+          :disabled="isGenerateRequestNamePending"
+          class="rounded-md"
+          :class="{
+            'animate-pulse': isGenerateRequestNamePending,
+          }"
+          :title="t('ai_experiments.generate_request_name')"
+          @click="
+            async () => {
+              await generateRequestName(props.requestContext)
+              submittedFeedback = false
+            }
+          "
         />
-      </span>
+      </div>
+    </template>
+    <template #footer>
+      <div class="flex justify-between items-center w-full">
+        <div class="flex space-x-2">
+          <HoppButtonPrimary
+            :label="`${t('action.save')}`"
+            outline
+            @click="saveRequest"
+          />
+          <HoppButtonSecondary
+            :label="`${t('action.cancel')}`"
+            outline
+            filled
+            @click="hideModal"
+          />
+        </div>
+
+        <div
+          v-if="lastTraceID && !submittedFeedback"
+          class="flex items-center gap-2"
+        >
+          <p>{{ t("ai_experiments.feedback_cta_request_name") }}</p>
+          <template v-if="!isSubmitFeedbackPending">
+            <HoppButtonSecondary
+              :icon="IconThumbsUp"
+              outline
+              @click="
+                async () => {
+                  if (lastTraceID) {
+                    await submitFeedback('positive', lastTraceID)
+                    submittedFeedback = true
+                  }
+                }
+              "
+            />
+            <HoppButtonSecondary
+              :icon="IconThumbsDown"
+              outline
+              @click="
+                async () => {
+                  if (lastTraceID) {
+                    await submitFeedback('negative', lastTraceID)
+                    submittedFeedback = true
+                  }
+                }
+              "
+            />
+          </template>
+          <template v-else>
+            <HoppSmartSpinner />
+          </template>
+        </div>
+        <div v-if="submittedFeedback">
+          <p>{{ t("ai_experiments.feedback_thank_you") }}</p>
+        </div>
+      </div>
     </template>
   </HoppSmartModal>
 </template>
 
-<script lang="ts">
-import { defineComponent, PropType } from "vue"
+<script setup lang="ts">
 import { useI18n } from "@composables/i18n"
 import { useToast } from "@composables/toast"
 import { HoppGQLRequest } from "@hoppscotch/data"
+import { nextTick, ref, watch } from "vue"
+import { useService } from "dioc/vue"
+import {
+  useRequestNameGeneration,
+  useSubmitFeedback,
+} from "~/composables/ai-experiments"
 import { editGraphqlRequest } from "~/newstore/collections"
+import { GQLTabService } from "~/services/tab/graphql"
+import IconSparkle from "~icons/lucide/sparkles"
+import IconThumbsUp from "~icons/lucide/thumbs-up"
+import IconThumbsDown from "~icons/lucide/thumbs-down"
+import { handleTokenValidation } from "~/helpers/handleTokenValidation"
 
-export default defineComponent({
-  props: {
-    show: Boolean,
-    folderPath: { type: String, default: null },
-    request: { type: Object as PropType<HoppGQLRequest>, default: () => ({}) },
-    requestIndex: { type: Number, default: null },
-    editingRequestName: { type: String, default: null },
-  },
-  emits: ["hide-modal"],
-  setup() {
-    return {
-      toast: useToast(),
-      t: useI18n(),
+const t = useI18n()
+const toast = useToast()
+const tabs = useService(GQLTabService)
+
+const props = defineProps<{
+  show: boolean
+  folderPath?: string
+  requestIndex: number | null
+  request: HoppGQLRequest | null
+  editingRequestName: string
+  requestContext: HoppGQLRequest | null
+}>()
+
+const emit = defineEmits<{
+  (e: "hide-modal"): void
+}>()
+
+const editingName = ref("")
+
+watch(
+  () => props.editingRequestName,
+  (val) => {
+    editingName.value = val
+  }
+)
+
+const {
+  canDoRequestNameGeneration,
+  generateRequestName,
+  isGenerateRequestNamePending,
+  lastTraceID,
+} = useRequestNameGeneration(editingName)
+
+watch(
+  () => props.show,
+  (newVal) => {
+    if (!newVal) {
+      submittedFeedback.value = false
+      lastTraceID.value = null
     }
-  },
-  data() {
-    return {
-      requestUpdateData: {
-        name: null as any | null,
-      },
-    }
-  },
-  watch: {
-    editingRequestName(val) {
-      this.requestUpdateData.name = val
-    },
-  },
-  methods: {
-    saveRequest() {
-      if (!this.requestUpdateData.name) {
-        this.toast.error(`${this.t("collection.invalid_name")}`)
-        return
-      }
+  }
+)
 
-      // TODO: Type safety goes brrrr. Proper typing plz
-      const requestUpdated = {
-        ...this.$props.request,
-        name: this.$data.requestUpdateData.name || this.$props.request.name,
-      }
+const submittedFeedback = ref(false)
+const { submitFeedback, isSubmitFeedbackPending } = useSubmitFeedback()
 
-      editGraphqlRequest(this.folderPath, this.requestIndex, requestUpdated)
+const saveRequest = async () => {
+  if (!editingName.value) {
+    toast.error(`${t("collection.invalid_name")}`)
+    return
+  }
 
-      this.hideModal()
-    },
-    hideModal() {
-      this.requestUpdateData = { name: null }
-      this.$emit("hide-modal")
-    },
-  },
-})
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
+
+  const requestUpdated = {
+    ...(props.request as any),
+    name: editingName.value || (props.request as any).name,
+  }
+
+  // Future TODO: Move below store and follow up tab updates to the page level
+  const possibleActiveTab = tabs.getTabRefWithSaveContext({
+    originLocation: "user-collection",
+    requestIndex: props.requestIndex!,
+    folderPath: props.folderPath!,
+  })
+
+  editGraphqlRequest(props.folderPath!, props.requestIndex!, requestUpdated)
+
+  if (possibleActiveTab) {
+    possibleActiveTab.value.document.request.name = requestUpdated.name
+
+    nextTick(() => {
+      possibleActiveTab.value.document.isDirty = false
+    })
+  }
+
+  hideModal()
+}
+
+const hideModal = () => {
+  editingName.value = ""
+  emit("hide-modal")
+}
 </script>

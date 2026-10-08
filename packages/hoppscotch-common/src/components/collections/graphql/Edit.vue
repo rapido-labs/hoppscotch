@@ -37,13 +37,15 @@ import { ref, watch } from "vue"
 import { editGraphqlCollection } from "~/newstore/collections"
 import { useToast } from "@composables/toast"
 import { useI18n } from "@composables/i18n"
+import { HoppCollection } from "@hoppscotch/data"
+import { handleTokenValidation } from "~/helpers/handleTokenValidation"
 
-const props = defineProps({
-  show: Boolean,
-  editingCollection: { type: Object, default: () => ({}) },
-  editingCollectionIndex: { type: Number, default: null },
-  editingCollectionName: { type: String, default: null },
-})
+const props = defineProps<{
+  show: boolean
+  editingCollectionIndex: number | null
+  editingCollection: HoppCollection | null
+  editingCollectionName: string
+}>()
 
 const emit = defineEmits<{
   (e: "hide-modal"): void
@@ -61,11 +63,14 @@ watch(
   }
 )
 
-const saveCollection = () => {
+const saveCollection = async () => {
   if (!editingName.value) {
     toast.error(`${t("collection.invalid_name")}`)
     return
   }
+
+  const isValidToken = await handleTokenValidation()
+  if (!isValidToken) return
 
   // TODO: Better typechecking here ?
   const collectionUpdated = {

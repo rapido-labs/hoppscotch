@@ -1,6 +1,6 @@
 import { TestContainer } from "dioc/testing"
 import { describe, expect, it, vi } from "vitest"
-import { RESTTabService } from "~/services/tab/rest"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
 import { ContextMenuService } from "../.."
 import { URLMenuService } from "../url.menu"
 import { getDefaultRESTRequest } from "~/helpers/rest/default"
@@ -32,7 +32,7 @@ describe("URLMenuService", () => {
         try {
           new URL(url)
           return true
-        } catch (error) {
+        } catch (_error) {
           // Fallback to regular expression check
           const pattern = /^(https?:\/\/)?([\w.-]+)(\.[\w.-]+)+([/?].*)?$/
           return pattern.test(url)
@@ -57,7 +57,7 @@ describe("URLMenuService", () => {
     it("should call the openNewTab function when action is called and a new hoppscotch tab is opened", () => {
       const container = new TestContainer()
       const createNewTabFn = vi.fn()
-      container.bindMock(RESTTabService, {
+      container.bindMock(WorkspaceTabsService, {
         createNewTab: createNewTabFn,
       })
       const url = container.bind(URLMenuService)
@@ -76,6 +76,7 @@ describe("URLMenuService", () => {
       expect(createNewTabFn).toHaveBeenCalledWith({
         request: request,
         isDirty: false,
+        type: "request",
       })
     })
   })

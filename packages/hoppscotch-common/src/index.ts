@@ -1,36 +1,73 @@
-import { createApp } from "vue"
-import { PlatformDef, setPlatformDef } from "./platform"
-import { setupLocalPersistence } from "./newstore/localpersistence"
-import { performMigrations } from "./helpers/migrations"
-import { initializeApp } from "./helpers/app"
-import { initBackendGQLClient } from "./helpers/backend/GQLClient"
+import { getKernelMode, initKernel } from "@hoppscotch/kernel"
+import { Log } from "./kernel/log"
 import { HOPP_MODULES } from "@modules/."
+import { createApp } from "vue"
 
-import "virtual:windi.css"
-import "../assets/scss/themes.scss"
-import "../assets/scss/styles.scss"
+import { loader } from "@guolao/vue-monaco-editor"
+import * as monaco from "monaco-editor"
+import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker"
+import tsWorker from "monaco-editor/esm/vs/language/typescript/ts.worker?worker"
+
+import { PlatformDef, setPlatformDef } from "./platform"
+
 import "nprogress/nprogress.css"
-import "@fontsource-variable/inter"
-import "@fontsource-variable/material-symbols-rounded"
-import "@fontsource-variable/roboto-mono"
+import "../assets/scss/styles.scss"
+import "../assets/scss/tailwind.scss"
+import "../assets/themes/themes.scss"
+
+import "unfonts.css"
 
 import App from "./App.vue"
+import { getService } from "./modules/dioc"
+import { InitializationService } from "./services/initialization.service"
 
-export function createHoppApp(el: string | Element, platformDef: PlatformDef) {
+export async function createHoppApp(
+  el: string | Element,
+  platformDef: PlatformDef
+) {
+  initKernel(getKernelMode())
+
+  // initialize the kernel log module (opens the log file on desktop,
+  // no-op on web). also drains any `diag()` entries that were buffered
+  // during module evaluation (before `initKernel()` ran) so they make
+  // it to the log file on disk
+  Log.init().catch((err) => console.warn("[kernel-log] init failed:", err))
+
   setPlatformDef(platformDef)
 
   const app = createApp(App)
 
-  // Some basic work that needs to be done before module inits even
-  initBackendGQLClient()
-  initializeApp()
-  setupLocalPersistence()
-  performMigrations()
+  // Initialize core services before app mounting
+  const initService = getService(InitializationService)
+
+  await initService.initPre()
+
+  try {
+    await initService.initAuthAndSync()
+  } catch {
+    console.error(
+      "Failed connecting to the backend, make sure the service is running and accessible on the network"
+    )
+  }
+
+  self.MonacoEnvironment = {
+    getWorker(_, label) {
+      if (label === "typescript") {
+        return new tsWorker()
+      }
+
+      return new editorWorker()
+    },
+  }
+
+  loader.config({ monaco })
 
   HOPP_MODULES.forEach((mod) => mod.onVueAppInit?.(app))
   platformDef.addedHoppModules?.forEach((mod) => mod.onVueAppInit?.(app))
 
   app.mount(el)
+
+  await initService.initPost()
 
   console.info(
     "%cWE ♥️ OPEN SOURCE",

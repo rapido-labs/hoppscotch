@@ -2,6 +2,7 @@
   <div>
     <div
       v-if="
+        !isLoading &&
         testResults &&
         (testResults.expectResults.length ||
           testResults.tests.length ||
@@ -9,31 +10,39 @@
       "
     >
       <div
-        class="sticky z-10 flex items-center justify-between flex-shrink-0 pl-4 overflow-x-auto border-b bg-primary border-dividerLight top-lowerSecondaryStickyFold"
+        class="sticky top-lowerSecondaryStickyFold z-10 flex flex-shrink-0 items-center justify-between overflow-x-auto border-b border-dividerLight bg-primary pl-4"
       >
-        <label class="font-semibold truncate text-secondaryLight">
+        <label class="truncate font-semibold text-secondaryLight">
           {{ t("test.report") }}
         </label>
-        <HoppButtonSecondary
-          v-tippy="{ theme: 'tooltip' }"
-          :title="t('action.clear')"
-          :icon="IconTrash2"
-          @click="clearContent()"
-        />
+        <div>
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip' }"
+            :title="t('action.download_test_report')"
+            :icon="IconDownload"
+            @click="downloadTestResult"
+          />
+          <HoppButtonSecondary
+            v-tippy="{ theme: 'tooltip' }"
+            :title="t('action.clear')"
+            :icon="IconTrash2"
+            @click="clearContent()"
+          />
+        </div>
       </div>
-      <div class="border-b divide-y-4 divide-dividerLight border-dividerLight">
+      <div class="divide-y-4 divide-dividerLight border-b border-dividerLight">
         <div v-if="haveEnvVariables" class="flex flex-col">
           <details class="flex flex-col divide-y divide-dividerLight" open>
             <summary
-              class="flex items-center justify-between flex-1 min-w-0 transition cursor-pointer focus:outline-none text-secondaryLight text-tiny group"
+              class="group flex min-w-0 flex-1 cursor-pointer items-center justify-between text-tiny text-secondaryLight transition focus:outline-none"
             >
               <span
-                class="inline-flex items-center justify-center px-4 py-2 transition group-hover:text-secondary truncate"
+                class="inline-flex items-center justify-center truncate px-4 py-2 transition group-hover:text-secondary"
               >
                 <icon-lucide-chevron-right
-                  class="mr-2 indicator flex flex-shrink-0"
+                  class="indicator mr-2 flex flex-shrink-0"
                 />
-                <span class="truncate capitalize-first">
+                <span class="capitalize-first truncate">
                   {{ t("environment.title") }}
                 </span>
               </span>
@@ -41,24 +50,24 @@
             <div class="divide-y divide-dividerLight">
               <div
                 v-if="noEnvSelected && !globalHasAdditions"
-                class="flex p-4 bg-error text-secondaryDark"
+                class="flex bg-bannerInfo p-4 text-secondaryDark"
                 role="alert"
               >
-                <icon-lucide-alert-triangle class="mr-4 svg-icons" />
+                <icon-lucide-alert-triangle class="svg-icons mr-4" />
                 <div class="flex flex-col">
                   <p>
                     {{ t("environment.no_environment_description") }}
                   </p>
-                  <p class="flex mt-3 space-x-2">
+                  <p class="mt-3 flex space-x-2">
                     <HoppButtonSecondary
                       :label="t('environment.add_to_global')"
-                      class="text-tiny !bg-primary"
+                      class="!bg-primary text-tiny"
                       filled
                       @click="addEnvToGlobal()"
                     />
                     <HoppButtonSecondary
                       :label="t('environment.create_new')"
-                      class="text-tiny !bg-primary"
+                      class="!bg-primary text-tiny"
                       filled
                       @click="displayModalAdd(true)"
                     />
@@ -77,6 +86,13 @@
                 :key="`env-${env.key}-${index}`"
                 :env="env"
                 status="updations"
+                global
+              />
+              <HttpTestResultEnv
+                v-for="(env, index) in testResults.envDiff.global.deletions"
+                :key="`env-${env.key}-${index}`"
+                :env="env"
+                status="deletions"
                 global
               />
               <HttpTestResultEnv
@@ -100,11 +116,21 @@
             </div>
           </details>
         </div>
-        <div v-if="testResults.tests" class="divide-y-4 divide-dividerLight">
+        <!-- Only show nested tests if they have content
+             This prevents showing empty test descriptors during async operations -->
+        <div
+          v-if="testResults.tests && testResults.tests.length > 0"
+          class="divide-y-4 divide-dividerLight"
+        >
           <HttpTestResultEntry
-            v-for="(result, index) in testResults.tests"
+            v-for="(result, index) in testResults.tests.filter(
+              (test) =>
+                (test.expectResults && test.expectResults.length > 0) ||
+                (test.tests && test.tests.length > 0)
+            )"
             :key="`result-${index}`"
-            :test-results="result"
+            :test-results="result as any"
+            show-test-type="all"
           />
         </div>
         <div
@@ -120,18 +146,16 @@
             :key="`result-${index}`"
             class="flex items-center px-4 py-2"
           >
-            <div
-              class="flex items-center flex-shrink flex-shrink-0 overflow-x-auto"
-            >
+            <div class="flex flex-shrink-0 items-center overflow-x-auto">
               <component
                 :is="result.status === 'pass' ? IconCheck : IconClose"
-                class="mr-4 svg-icons"
+                class="svg-icons mr-4"
                 :class="
                   result.status === 'pass' ? 'text-green-500' : 'text-red-500'
                 "
               />
               <div
-                class="flex items-center flex-shrink flex-shrink-0 space-x-2 overflow-x-auto"
+                class="flex flex-shrink-0 items-center space-x-2 overflow-x-auto"
               >
                 <span
                   v-if="result.message"
@@ -140,7 +164,7 @@
                   {{ result.message }}
                 </span>
                 <span class="inline-flex text-secondaryLight">
-                  <icon-lucide-minus class="mr-2 svg-icons" />
+                  <icon-lucide-minus class="svg-icons mr-2" />
                   {{
                     result.status === "pass"
                       ? t("test.passed")
@@ -153,30 +177,34 @@
         </div>
       </div>
     </div>
+    <div v-else-if="isLoading" class="flex flex-col items-center p-6">
+      <HoppSmartSpinner class="mb-4" />
+      <span class="text-secondaryLight text-sm">{{ t("test.running") }}</span>
+    </div>
     <HoppSmartPlaceholder
       v-else-if="testResults && testResults.scriptError"
-      :src="`/images/states/${colorMode.value}/youre_lost.svg`"
-      :alt="`${t('error.test_script_fail')}`"
-      :heading="t('error.test_script_fail')"
-      :text="t('helpers.test_script_fail')"
-    >
-    </HoppSmartPlaceholder>
+      :src="`/images/states/${colorMode.value}/upload_error.svg`"
+      :alt="`${t('error.post_request_script_fail')}`"
+      :heading="t('error.post_request_script_fail')"
+      :text="t('helpers.post_request_script_fail')"
+    />
     <HoppSmartPlaceholder
-      v-else
+      v-else-if="showEmptyMessage && !isLoading"
       :src="`/images/states/${colorMode.value}/validation.svg`"
       :alt="`${t('empty.tests')}`"
       :heading="t('empty.tests')"
-      :text="t('helpers.tests')"
+      :text="t('helpers.post_request_script')"
     >
-      <HoppButtonSecondary
-        outline
-        :label="`${t('action.learn_more')}`"
-        to="https://docs.hoppscotch.io/documentation/getting-started/rest/tests"
-        blank
-        :icon="IconExternalLink"
-        reverse
-        class="my-4"
-      />
+      <template #body>
+        <HoppButtonSecondary
+          outline
+          :label="`${t('action.learn_more')}`"
+          to="https://docs.hoppscotch.io/documentation/getting-started/rest/tests"
+          blank
+          :icon="IconExternalLink"
+          reverse
+        />
+      </template>
     </HoppSmartPlaceholder>
     <EnvironmentsMyDetails
       :show="showMyEnvironmentDetailsModal"
@@ -197,31 +225,42 @@
 </template>
 
 <script setup lang="ts">
-import { computed, Ref, ref } from "vue"
-import { isEqual } from "lodash-es"
-import { useReadonlyStream, useStream } from "@composables/stream"
 import { useI18n } from "@composables/i18n"
+import { useReadonlyStream, useStream } from "@composables/stream"
+import { isEqual } from "lodash-es"
+import { computed, ref } from "vue"
+import { HoppTestResult } from "~/helpers/types/HoppTestResult"
 import {
   globalEnv$,
   selectedEnvironmentIndex$,
-  setGlobalEnvVariables,
   setSelectedEnvironmentIndex,
 } from "~/newstore/environments"
-import { HoppTestResult } from "~/helpers/types/HoppTestResult"
+import { exportTestResults } from "~/helpers/import-export/export/testResults"
 
-import IconTrash2 from "~icons/lucide/trash-2"
-import IconExternalLink from "~icons/lucide/external-link"
 import IconCheck from "~icons/lucide/check"
+import IconExternalLink from "~icons/lucide/external-link"
+import IconTrash2 from "~icons/lucide/trash-2"
 import IconClose from "~icons/lucide/x"
+import IconDownload from "~icons/lucide/download"
 
-import { useColorMode } from "~/composables/theming"
+import { GlobalEnvironment } from "@hoppscotch/data"
 import { useVModel } from "@vueuse/core"
 import { useService } from "dioc/vue"
+import { useColorMode } from "~/composables/theming"
+import { invokeAction } from "~/helpers/actions"
 import { WorkspaceService } from "~/services/workspace.service"
 
-const props = defineProps<{
-  modelValue: HoppTestResult | null | undefined
-}>()
+const props = withDefaults(
+  defineProps<{
+    modelValue: HoppTestResult | null | undefined
+    showEmptyMessage?: boolean
+    isLoading?: boolean
+  }>(),
+  {
+    showEmptyMessage: true,
+    isLoading: false,
+  }
+)
 
 const emit = defineEmits<{
   (e: "update:modelValue", val: HoppTestResult | null | undefined): void
@@ -275,12 +314,10 @@ const selectedEnvironmentIndex = useStream(
   setSelectedEnvironmentIndex
 )
 
-const globalEnvVars = useReadonlyStream(globalEnv$, []) as Ref<
-  Array<{
-    key: string
-    value: string
-  }>
->
+const globalEnvVars = useReadonlyStream(globalEnv$, {
+  v: 2,
+  variables: [],
+} as GlobalEnvironment)
 
 const noEnvSelected = computed(
   () => selectedEnvironmentIndex.value.type === "NO_ENV_SELECTED"
@@ -290,16 +327,23 @@ const globalHasAdditions = computed(() => {
   if (!testResults.value?.envDiff.selected.additions) return false
   return (
     testResults.value.envDiff.selected.additions.every(
-      (x) => globalEnvVars.value.findIndex((y) => isEqual(x, y)) !== -1
+      (x) =>
+        globalEnvVars.value.variables.findIndex((y) => isEqual(x, y)) !== -1
     ) ?? false
   )
 })
 
 const addEnvToGlobal = () => {
   if (!testResults.value?.envDiff.selected.additions) return
-  setGlobalEnvVariables([
-    ...globalEnvVars.value,
-    ...testResults.value.envDiff.selected.additions,
-  ])
+
+  invokeAction("modals.global.environment.update", {
+    variables: testResults.value.envDiff.selected.additions,
+    isSecret: false,
+  })
+}
+
+const downloadTestResult = () => {
+  if (!testResults.value) return
+  exportTestResults(testResults.value)
 }
 </script>

@@ -1,11 +1,11 @@
 <template>
-  <div class="flex flex-col items-center justify-between min-h-screen">
+  <div class="flex min-h-screen flex-col items-center justify-between">
     <div
       v-if="invalidLink"
-      class="flex flex-col items-center justify-center flex-1"
+      class="flex flex-1 flex-col items-center justify-center"
     >
-      <icon-lucide-alert-triangle class="mb-2 opacity-75 svg-icons" />
-      <h1 class="text-center heading">
+      <icon-lucide-alert-triangle class="svg-icons mb-2 opacity-75" />
+      <h1 class="heading text-center">
         {{ t("team.invalid_invite_link") }}
       </h1>
       <p class="mt-2 text-center">
@@ -14,13 +14,13 @@
     </div>
     <div
       v-else-if="loadingCurrentUser"
-      class="flex flex-col items-center justify-center flex-1 p-4"
+      class="flex flex-1 flex-col items-center justify-center p-4"
     >
       <HoppSmartSpinner />
     </div>
     <div
       v-else-if="currentUser === null"
-      class="flex flex-col items-center justify-center flex-1 p-4"
+      class="flex flex-1 flex-col items-center justify-center p-4"
     >
       <h1 class="heading">{{ t("team.login_to_continue") }}</h1>
       <p class="mt-2">{{ t("team.login_to_continue_description") }}</p>
@@ -30,10 +30,10 @@
         @click="invokeAction('modals.login.toggle')"
       />
     </div>
-    <div v-else class="flex flex-col items-center justify-center flex-1 p-4">
+    <div v-else class="flex flex-1 flex-col items-center justify-center p-4">
       <div
         v-if="inviteDetails.loading"
-        class="flex flex-col items-center justify-center flex-1 p-4"
+        class="flex flex-1 flex-col items-center justify-center p-4"
       >
         <HoppSmartSpinner />
       </div>
@@ -42,12 +42,12 @@
           v-if="!inviteDetails.loading && E.isLeft(inviteDetails.data)"
           class="flex flex-col items-center p-4"
         >
-          <icon-lucide-alert-triangle class="mb-4 svg-icons" />
+          <icon-lucide-alert-triangle class="svg-icons mb-4" />
           <p>
             {{ getErrorMessage(inviteDetails.data.left) }}
           </p>
           <p
-            class="flex flex-col items-center p-4 mt-8 border rounded border-dividerLight"
+            class="mt-8 flex flex-col items-center rounded border border-dividerLight p-4"
           >
             <span class="mb-4">
               {{ t("team.logout_and_try_again") }}
@@ -66,12 +66,12 @@
             E.isRight(inviteDetails.data) &&
             !joinTeamSuccess
           "
-          class="flex flex-col items-center justify-center flex-1 p-4"
+          class="flex flex-1 flex-col items-center justify-center p-4"
         >
           <h1 class="heading">
             {{
               t("team.join_team", {
-                team: inviteDetails.data.right.teamInvitation.team.name,
+                workspace: inviteDetails.data.right.teamInvitation.team.name,
               })
             }}
           </h1>
@@ -81,7 +81,7 @@
                 owner:
                   inviteDetails.data.right.teamInvitation.creator.displayName ??
                   inviteDetails.data.right.teamInvitation.creator.email,
-                team: inviteDetails.data.right.teamInvitation.team.name,
+                workspace: inviteDetails.data.right.teamInvitation.team.name,
               })
             }}
           </p>
@@ -89,7 +89,7 @@
             <HoppButtonPrimary
               :label="
                 t('team.join_team', {
-                  team: inviteDetails.data.right.teamInvitation.team.name,
+                  workspace: inviteDetails.data.right.teamInvitation.team.name,
                 })
               "
               :loading="loading"
@@ -104,19 +104,19 @@
             E.isRight(inviteDetails.data) &&
             joinTeamSuccess
           "
-          class="flex flex-col items-center justify-center flex-1 p-4"
+          class="flex flex-1 flex-col items-center justify-center p-4"
         >
           <h1 class="heading">
             {{
               t("team.joined_team", {
-                team: inviteDetails.data.right.teamInvitation.team.name,
+                workspace: inviteDetails.data.right.teamInvitation.team.name,
               })
             }}
           </h1>
           <p class="mt-2 text-secondaryLight">
             {{
               t("team.joined_team_description", {
-                team: inviteDetails.data.right.teamInvitation.team.name,
+                workspace: inviteDetails.data.right.teamInvitation.team.name,
               })
             }}
           </p>
@@ -133,7 +133,7 @@
     </div>
     <div class="p-4">
       <HoppButtonSecondary
-        class="tracking-wide !font-bold !text-secondaryDark"
+        class="!font-bold tracking-wide !text-secondaryDark"
         label="HOPPSCOTCH"
         to="/"
       />
@@ -141,28 +141,23 @@
   </div>
 </template>
 
-<script lang="ts">
-import { computed, defineComponent } from "vue"
-import { useRoute } from "vue-router"
+<script lang="ts" setup>
 import * as E from "fp-ts/Either"
 import * as TE from "fp-ts/TaskEither"
 import { pipe } from "fp-ts/function"
-import { GQLError } from "~/helpers/backend/GQLClient"
-import { useGQLQuery } from "@composables/graphql"
-import {
-  GetInviteDetailsDocument,
-  GetInviteDetailsQuery,
-  GetInviteDetailsQueryVariables,
-} from "~/helpers/backend/graphql"
-import { acceptTeamInvitation } from "~/helpers/backend/mutations/TeamInvitation"
-import { initializeApp } from "~/helpers/app"
-import { platform } from "~/platform"
+import { computed, onBeforeMount, onMounted, ref } from "vue"
+import { useRoute } from "vue-router"
+
 import { onLoggedIn } from "@composables/auth"
 import { useReadonlyStream } from "@composables/stream"
 import { useToast } from "@composables/toast"
+import { invokeAction } from "@helpers/actions"
 import { useI18n } from "~/composables/i18n"
+import { initializeApp } from "~/helpers/app"
+import { GQLError } from "~/helpers/backend/GQLClient"
+import { acceptTeamInvitation } from "~/helpers/backend/mutations/TeamInvitation"
+import { platform } from "~/platform"
 import IconHome from "~icons/lucide/home"
-import { invokeAction } from "~/helpers/actions"
 
 type GetInviteDetailsError =
   | "team_invite/not_valid_viewer"
@@ -171,116 +166,100 @@ type GetInviteDetailsError =
   | "team_invite/email_do_not_match"
   | "team_invite/already_member"
 
-export default defineComponent({
-  layout: "empty",
+// Data properties
+const invalidLink = ref(false)
+const loading = ref(false)
+const revokedLink = ref(false)
+const inviteID = ref("")
+const joinTeamSuccess = ref(false)
 
-  setup() {
-    const route = useRoute()
+const route = useRoute()
 
-    const inviteDetails = useGQLQuery<
-      GetInviteDetailsQuery,
-      GetInviteDetailsQueryVariables,
-      GetInviteDetailsError
-    >({
-      query: GetInviteDetailsDocument,
-      variables: {
-        inviteID: route.query.id as string,
-      },
-      defer: true,
-    })
+const inviteDetails = platform.backend.getInviteDetails<GetInviteDetailsError>(
+  route.query.id as string
+)
 
-    onLoggedIn(() => {
-      if (typeof route.query.id === "string") {
-        inviteDetails.execute({
-          inviteID: route.query.id,
-        })
-      }
-    })
-
-    const probableUser = useReadonlyStream(
-      platform.auth.getProbableUserStream(),
-      platform.auth.getProbableUser()
-    )
-
-    const currentUser = useReadonlyStream(
-      platform.auth.getCurrentUserStream(),
-      platform.auth.getCurrentUser()
-    )
-
-    const loadingCurrentUser = computed(() => {
-      if (!probableUser.value) return false
-      else if (!currentUser.value) return true
-      else return false
-    })
-
-    return {
-      E,
-      inviteDetails,
-      loadingCurrentUser,
-      currentUser,
-      toast: useToast(),
-      t: useI18n(),
-      IconHome,
-      invokeAction,
-    }
-  },
-  data() {
-    return {
-      invalidLink: false,
-      loading: false,
-      revokedLink: false,
-      inviteID: "",
-      joinTeamSuccess: false,
-    }
-  },
-  beforeMount() {
-    initializeApp()
-  },
-  mounted() {
-    if (typeof this.$route.query.id === "string") {
-      this.inviteID = this.$route.query.id
-    }
-    this.invalidLink = !this.inviteID
-    // TODO: check revokeTeamInvitation
-    // TODO: check login user already a member
-  },
-  methods: {
-    joinTeam() {
-      this.loading = true
-      pipe(
-        acceptTeamInvitation(this.inviteID),
-        TE.matchW(
-          () => {
-            this.loading = false
-            this.toast.error(`${this.t("error.something_went_wrong")}`)
-          },
-          () => {
-            this.joinTeamSuccess = true
-            this.loading = false
-          }
-        )
-      )()
-    },
-    getErrorMessage(error: GQLError<GetInviteDetailsError>) {
-      if (error.type === "network_error") {
-        return this.t("error.network_error")
-      } else {
-        switch (error.error) {
-          case "team_invite/not_valid_viewer":
-            return this.t("team.not_valid_viewer")
-          case "team_invite/not_found":
-            return this.t("team.not_found")
-          case "team_invite/no_invite_found":
-            return this.t("team.no_invite_found")
-          case "team_invite/already_member":
-            return this.t("team.already_member")
-          case "team_invite/email_do_not_match":
-            return this.t("team.email_do_not_match")
-          default:
-            return this.t("error.something_went_wrong")
-        }
-      }
-    },
-  },
+// Lifecycle hooks
+onBeforeMount(() => {
+  initializeApp()
 })
+
+onMounted(async () => {
+  if (typeof route.query.id === "string") {
+    inviteID.value = route.query.id
+  }
+  invalidLink.value = !inviteID.value
+  // TODO: check revokeTeamInvitation
+  // TODO: check if the logged-in user is already a member
+})
+
+onLoggedIn(async () => {
+  const probableUser = platform.auth.getProbableUser()
+
+  if (probableUser !== null) {
+    await platform.auth.waitProbableLoginToConfirm()
+  }
+
+  if (typeof route.query.id === "string") {
+    inviteDetails.execute({
+      inviteID: route.query.id,
+    })
+  }
+})
+
+const probableUser = useReadonlyStream(
+  platform.auth.getProbableUserStream(),
+  platform.auth.getProbableUser()
+)
+
+const currentUser = useReadonlyStream(
+  platform.auth.getCurrentUserStream(),
+  platform.auth.getCurrentUser()
+)
+
+const loadingCurrentUser = computed(() => {
+  if (!probableUser.value) return false
+  if (!currentUser.value) return true
+  return false
+})
+
+const toast = useToast()
+const t = useI18n()
+
+const joinTeam = () => {
+  loading.value = true
+  pipe(
+    acceptTeamInvitation(inviteID.value),
+    TE.matchW(
+      () => {
+        loading.value = false
+        toast.error(`${t("error.something_went_wrong")}`)
+      },
+      () => {
+        joinTeamSuccess.value = true
+        loading.value = false
+      }
+    )
+  )()
+}
+
+const getErrorMessage = (error: GQLError<GetInviteDetailsError>) => {
+  if (error.type === "network_error") {
+    return t("error.network_error")
+  }
+  switch (error.error) {
+    case "team_invite/not_valid_viewer":
+      return t("team.not_valid_viewer")
+    case "team_invite/not_found":
+      return t("team.not_found")
+    case "team_invite/no_invite_found":
+      return t("team.no_invite_found")
+    case "team_invite/already_member":
+      return t("team.already_member")
+    case "team_invite/email_do_not_match":
+      return t("team.email_do_not_match")
+    default:
+      return t("error.something_went_wrong")
+  }
+}
 </script>

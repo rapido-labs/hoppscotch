@@ -1,71 +1,72 @@
-import IconFolderPlus from "~icons/lucide/folder-plus"
-import { pipe, flow } from "fp-ts/function"
-import * as TE from "fp-ts/TaskEither"
-import * as O from "fp-ts/Option"
-import * as RA from "fp-ts/ReadonlyArray"
 import {
-  translateToNewRESTCollection,
   HoppCollection,
   HoppRESTRequest,
+  getDefaultGQLRequest,
+  getDefaultRESTRequest,
+  isGQLRequest,
+  translateToNewCollection,
+  HoppGQLRequest,
 } from "@hoppscotch/data"
-import { isPlainObject as _isPlainObject } from "lodash-es"
-import { step } from "../steps"
-import { defineImporter, IMPORTER_INVALID_FILE_FORMAT } from "."
+import * as A from "fp-ts/Array"
+import * as O from "fp-ts/Option"
+import * as RA from "fp-ts/ReadonlyArray"
+import * as TE from "fp-ts/TaskEither"
+import { flow, pipe } from "fp-ts/function"
 import { safeParseJSON } from "~/helpers/functional/json"
+import { IMPORTER_INVALID_FILE_FORMAT } from "."
 
-export default defineImporter({
-  id: "hoppscotch",
-  name: "import.from_json",
-  icon: IconFolderPlus,
-  applicableTo: ["my-collections", "team-collections", "url-import"],
-  steps: [
-    step({
-      stepName: "FILE_IMPORT",
-      metadata: {
-        caption: "import.from_json_description",
-        acceptedFileTypes: "application/json",
-      },
-    }),
-  ] as const,
-  importer: ([content]) =>
-    pipe(
-      safeParseJSON(content),
-      O.chain(
-        flow(
-          makeCollectionsArray,
-          RA.map(validateCollection),
-          O.sequenceArray,
-          O.map(RA.toArray)
-        )
-      ),
-      TE.fromOption(() => IMPORTER_INVALID_FILE_FORMAT)
+export const hoppRESTImporter = (content: string[]) =>
+  pipe(
+    content,
+    A.traverse(O.Applicative)((str) => safeParseJSON(str, true)),
+    O.chain(
+      flow(
+        A.flatten,
+        makeCollectionsArray,
+        RA.map(validateCollection),
+        O.sequenceArray,
+        O.map(RA.toArray)
+      )
     ),
-})
-
-/**
- * checks if a value is a plain object
- */
-const isPlainObject = (value: any): value is object => _isPlainObject(value)
-
-/**
- * checks if a collection matches the schema for a hoppscotch collection.
- * as of now we are only checking if the collection has a "v" key in it.
- */
-const isValidCollection = (
-  collection: unknown
-): collection is HoppCollection<HoppRESTRequest> =>
-  isPlainObject(collection) && "v" in collection
+    TE.fromOption(() => IMPORTER_INVALID_FILE_FORMAT)
+  )
 
 /**
  * checks if a collection is a valid hoppscotch collection.
  * else translate it into one.
  */
 const validateCollection = (collection: unknown) => {
-  if (isValidCollection(collection)) {
-    return O.some(collection)
-  } else {
-    return O.some(translateToNewRESTCollection(collection))
+  const collectionSchemaParsedResult = HoppCollection.safeParse(collection)
+
+  if (collectionSchemaParsedResult.type === "ok") {
+    const requests = collectionSchemaParsedResult.value.requests.map(
+      (request) => {
+        const requestSchemaParsedResult = HoppRESTRequest.safeParse(request)
+
+        if (requestSchemaParsedResult.type === "ok") {
+          return requestSchemaParsedResult.value
+        }
+
+        // Unified collections hold mixed types — keep GQL requests as GQL
+        // instead of clobbering them into a default REST request
+        if (isGQLRequest(request as HoppRESTRequest | HoppGQLRequest)) {
+          const gqlParsedResult = HoppGQLRequest.safeParse(request)
+          return gqlParsedResult.type === "ok"
+            ? gqlParsedResult.value
+            : getDefaultGQLRequest()
+        }
+
+        return getDefaultRESTRequest()
+      }
+    )
+
+    return O.some({
+      ...collectionSchemaParsedResult.value,
+      requests,
+    })
   }
+
+  return O.some(translateToNewCollection(collection))
 }
 
 /**
@@ -73,3 +74,53 @@ const validateCollection = (collection: unknown) => {
  */
 const makeCollectionsArray = (collections: unknown | unknown[]): unknown[] =>
   Array.isArray(collections) ? collections : [collections]
+
+export const hoppGQLImporter = (content: string) =>
+  pipe(
+    safeParseJSON(content),
+    O.chain(
+      flow(
+        makeCollectionsArray,
+        RA.map(validateGQLCollection),
+        O.sequenceArray,
+        O.map(RA.toArray)
+      )
+    ),
+    TE.fromOption(() => IMPORTER_INVALID_FILE_FORMAT)
+  )
+
+/**
+ *
+ * @param collection the collection to validate
+ * @returns the collection if it is valid, else a translated version of the collection
+ */
+export const validateGQLCollection = (collection: unknown) => {
+  const collectionSchemaParsedResult = HoppCollection.safeParse(collection)
+
+  if (collectionSchemaParsedResult.type === "ok") {
+    const requests = collectionSchemaParsedResult.value.requests.map(
+      (request) => {
+        const requestSchemaParsedResult = HoppGQLRequest.safeParse(request)
+
+        if (requestSchemaParsedResult.type === "ok") {
+          return requestSchemaParsedResult.value
+        }
+
+        // Mirror of the REST importer above — keep REST requests as REST
+        if (!isGQLRequest(request as HoppRESTRequest | HoppGQLRequest)) {
+          const restParsedResult = HoppRESTRequest.safeParse(request)
+          if (restParsedResult.type === "ok") return restParsedResult.value
+        }
+
+        return getDefaultGQLRequest()
+      }
+    )
+
+    return O.some({
+      ...collectionSchemaParsedResult.value,
+      requests,
+    })
+  }
+
+  return O.some(translateToNewCollection(collection))
+}

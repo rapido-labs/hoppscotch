@@ -1,7 +1,14 @@
-import { describe, it, expect } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import { Inspector, InspectionService, InspectorResult } from "../"
 import { TestContainer } from "dioc/testing"
-import { ref } from "vue"
+import { computed, ref } from "vue"
+import { refWithControl } from "@vueuse/core"
+import { WorkspaceTabsService } from "~/services/tab/workspace-tabs"
+
+vi.mock("~/modules/i18n", () => ({
+  __esModule: true,
+  getI18n: () => (x: string) => x,
+}))
 
 const inspectorResultMock: InspectorResult[] = [
   {
@@ -25,10 +32,29 @@ const testInspector: Inspector = {
   getInspections: () => ref(inspectorResultMock),
 }
 
+const mockRESTTab = {
+  id: "test",
+  document: {
+    type: "request" as const,
+    request: {},
+    response: null,
+    isDirty: false,
+    optionTabPreference: "params" as const,
+  },
+}
+
 describe("InspectionService", () => {
   describe("registerInspector", () => {
-    it("should register an inspector", () => {
+    it("should register a REST inspector", () => {
       const container = new TestContainer()
+
+      container.bindMock(WorkspaceTabsService, {
+        currentActiveTab: computed(() => mockRESTTab),
+        tabMap: new Map([["test", mockRESTTab]]),
+        tabOrdering: ref(["test"]),
+        currentTabID: refWithControl("test"),
+      })
+
       const service = container.bind(InspectionService)
 
       service.registerInspector(testInspector)
@@ -40,6 +66,14 @@ describe("InspectionService", () => {
   describe("deleteTabInspectorResult", () => {
     it("should delete a tab's inspector results", () => {
       const container = new TestContainer()
+
+      container.bindMock(WorkspaceTabsService, {
+        currentActiveTab: computed(() => mockRESTTab),
+        tabMap: new Map([["test", mockRESTTab]]),
+        tabOrdering: ref(["test"]),
+        currentTabID: refWithControl("test"),
+      })
+
       const service = container.bind(InspectionService)
 
       const tabID = "testTab"

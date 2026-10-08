@@ -18,7 +18,7 @@ const samples = [
       method: "GET",
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: "application/x-www-form-urlencoded",
         body: rawKeyValueEntriesToString([
@@ -38,6 +38,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -111,36 +114,45 @@ const samples = [
           key: "User-Agent",
           value:
             "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
+          description: "",
         },
         {
           active: true,
           key: "Accept",
           value: "application/json, text/plain, */*",
+          description: "",
         },
         {
           active: true,
           key: "Accept-Language",
           value: "en",
+          description: "",
         },
         {
           active: true,
           key: "Origin",
           value: "http://localhost:3012",
+          description: "",
         },
         {
           active: true,
           key: "Connection",
           value: "keep-alive",
+          description: "",
         },
         {
           active: true,
           key: "Referer",
           value: "http://localhost:3012/crm/company/4",
+          description: "",
         },
       ],
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -149,7 +161,7 @@ const samples = [
       method: "GET",
       name: "Untitled",
       endpoint: "https://google.com/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: null,
         body: null,
@@ -158,6 +170,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -166,7 +181,7 @@ const samples = [
       method: "POST",
       name: "Untitled",
       endpoint: "http://localhost:1111/hello/world/?buzz",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: "application/json",
         body: `{\n  "foo": "bar"\n}`,
@@ -177,10 +192,14 @@ const samples = [
           active: true,
           key: "bar",
           value: "baz",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -189,7 +208,7 @@ const samples = [
       method: "GET",
       name: "Untitled",
       endpoint: "https://example.com/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: null,
         body: null,
@@ -200,15 +219,20 @@ const samples = [
           active: true,
           key: "tool",
           value: "curl",
+          description: "",
         },
         {
           active: true,
           key: "age",
           value: "old",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -217,7 +241,7 @@ const samples = [
       method: "POST",
       name: "Untitled",
       endpoint: "https://bing.com/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: "multipart/form-data",
         body: [
@@ -239,6 +263,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -264,10 +291,14 @@ const samples = [
           active: true,
           key: "Accept",
           value: "application/json",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -288,9 +319,19 @@ const samples = [
         body: null,
       },
       params: [],
-      headers: [],
+      headers: [
+        {
+          active: true,
+          key: "Authorization",
+          value: "Basic dXNlcjpwYXNz",
+          description: "",
+        },
+      ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -301,7 +342,7 @@ const samples = [
       name: "Untitled",
       endpoint: "http://localhost:9900/",
       auth: {
-        authType: "none",
+        authType: "inherit",
         authActive: true,
       },
       body: {
@@ -309,9 +350,19 @@ const samples = [
         body: null,
       },
       params: [],
-      headers: [],
+      headers: [
+        {
+          active: true,
+          key: "Authorization",
+          value: "Basic 77898dXNlcjpwYXNz",
+          description: "",
+        },
+      ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -332,9 +383,20 @@ const samples = [
         body: null,
       },
       params: [],
-      headers: [],
+      headers: [
+        {
+          active: true,
+          key: "Authorization",
+          value:
+            "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+          description: "",
+        },
+      ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -345,7 +407,7 @@ const samples = [
       endpoint: "https://hoppscotch.io/?io",
       auth: {
         authActive: true,
-        authType: "none",
+        authType: "inherit",
       },
       body: {
         contentType: null,
@@ -356,16 +418,21 @@ const samples = [
           active: true,
           key: "tool",
           value: "curl",
+          description: "",
         },
         {
           active: true,
           key: "platform",
           value: "hoppscotch",
+          description: "",
         },
       ],
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -380,7 +447,7 @@ const samples = [
       endpoint: "https://someshadywebsite.com/questionable/path/?so",
       auth: {
         authActive: true,
-        authType: "none",
+        authType: "inherit",
       },
       body: {
         contentType: "multipart/form-data",
@@ -404,11 +471,13 @@ const samples = [
           active: true,
           key: "and",
           value: "params",
+          description: "",
         },
         {
           active: true,
           key: "stay",
           value: "tuned",
+          description: "",
         },
       ],
       headers: [
@@ -416,20 +485,26 @@ const samples = [
           active: true,
           key: "user-agent",
           value: "Mozilla/5.0",
+          description: "",
         },
         {
           active: true,
           key: "accept",
           value: "text/html",
+          description: "",
         },
         {
           active: true,
           key: "cookie",
           value: "cookie-cookie",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -441,7 +516,7 @@ const samples = [
       endpoint: "http://localhost/",
       auth: {
         authActive: true,
-        authType: "none",
+        authType: "inherit",
       },
       body: {
         contentType: "multipart/form-data",
@@ -458,6 +533,9 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -473,7 +551,7 @@ const samples = [
       method: "GET",
       name: "Untitled",
       endpoint: "https://hoppscotch.io/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: null,
         body: null,
@@ -484,37 +562,46 @@ const samples = [
           active: true,
           key: "authority",
           value: "hoppscotch.io",
+          description: "",
         },
         {
           active: true,
           key: "sec-ch-ua",
           value:
             '" Not A;Brand";v="99", "Chromium";v="98", "Google Chrome";v="98"',
+          description: "",
         },
         {
           active: true,
           key: "accept",
           value: "*/*",
+          description: "",
         },
         {
           active: true,
           key: "user-agent",
           value:
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
+          description: "",
         },
         {
           active: true,
           key: "sec-ch-ua-platform",
           value: '"Windows"',
+          description: "",
         },
         {
           active: true,
           key: "accept-language",
           value: "en-US,en;q=0.9,ml;q=0.8",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -528,7 +615,7 @@ const samples = [
       method: "GET",
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       body: {
         contentType: "application/x-www-form-urlencoded",
         body: rawKeyValueEntriesToString([
@@ -549,6 +636,7 @@ const samples = [
           active: true,
           key: "hello",
           value: "there",
+          description: "",
         },
       ],
       headers: [
@@ -556,10 +644,14 @@ const samples = [
           active: true,
           key: "something",
           value: "other-thing",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -573,12 +665,13 @@ const samples = [
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
       method: "POST",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [
         {
           active: true,
           key: "something",
           value: "other-thing",
+          description: "",
         },
       ],
       body: {
@@ -603,10 +696,14 @@ const samples = [
           active: true,
           key: "hello",
           value: "there",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -615,12 +712,15 @@ const samples = [
       name: "Untitled",
       endpoint: "https://muxueqz.top/skybook.html",
       method: "GET",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [],
       body: { contentType: null, body: null },
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -629,7 +729,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
       method: "POST",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [],
       body: {
         contentType: "multipart/form-data",
@@ -645,6 +745,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -653,7 +756,7 @@ const samples = [
       name: "Untitled",
       endpoint: "http://127.0.0.1/",
       method: "CUSTOMMETHOD",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [],
       body: {
         contentType: null,
@@ -662,6 +765,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -670,12 +776,13 @@ const samples = [
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
       method: "GET",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [
         {
           active: true,
           key: "User-Agent",
           value: "pinephone",
+          description: "",
         },
       ],
       body: {
@@ -685,6 +792,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -693,7 +803,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://echo.hoppscotch.io/",
       method: "GET",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [],
       body: {
         contentType: null,
@@ -702,6 +812,9 @@ const samples = [
       params: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -710,7 +823,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://example.org/",
       method: "HEAD",
-      auth: { authType: "none", authActive: true },
+      auth: { authType: "inherit", authActive: true },
       headers: [],
       body: {
         contentType: null,
@@ -721,10 +834,14 @@ const samples = [
           active: true,
           key: "tool",
           value: "hopp",
+          description: "",
         },
       ],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -747,6 +864,9 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -756,7 +876,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://google.com/",
       auth: {
-        authType: "none",
+        authType: "inherit",
         authActive: true,
       },
       body: {
@@ -767,6 +887,9 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -777,7 +900,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://google.com/",
       auth: {
-        authType: "none",
+        authType: "inherit",
         authActive: true,
       },
       body: {
@@ -788,6 +911,9 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -797,7 +923,7 @@ const samples = [
       name: "Untitled",
       endpoint: "http://192.168.0.24:8080/ping",
       auth: {
-        authType: "none",
+        authType: "inherit",
         authActive: true,
       },
       body: {
@@ -808,6 +934,9 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
   {
@@ -817,7 +946,7 @@ const samples = [
       name: "Untitled",
       endpoint: "https://example.com/",
       auth: {
-        authType: "none",
+        authType: "inherit",
         authActive: true,
       },
       body: {
@@ -839,14 +968,220 @@ const samples = [
       headers: [],
       preRequestScript: "",
       testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
+    }),
+  },
+  {
+    command: `curl --location 'https://api.example.net/id/1164/requests' \
+    --header 'Accept: application/vnd.test-data.v2.1+json' \
+    --header 'Content-Type: application/x-www-form-urlencoded' \
+    --data-urlencode 'data={"type":"test","typeId":"101"}' \
+    --data-urlencode 'data2={"type":"test2","typeId":"123"}'`,
+    response: makeRESTRequest({
+      method: "POST",
+      name: "Untitled",
+      endpoint: "https://api.example.net/id/1164/requests",
+      auth: {
+        authType: "inherit",
+        authActive: true,
+      },
+      body: {
+        contentType: "application/x-www-form-urlencoded",
+        body: `data: {"type":"test","typeId":"101"}
+data2: {"type":"test2","typeId":"123"}`,
+      },
+      params: [],
+      headers: [
+        {
+          active: true,
+          key: "Accept",
+          value: "application/vnd.test-data.v2.1+json",
+          description: "",
+        },
+      ],
+      preRequestScript: "",
+      testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
+    }),
+  },
+  {
+    command: `curl --request GET \
+    --url https://echo.hoppscotch.io/ \
+    --header 'Authorization:Basic YXNkZmdoOjEyMzQ=' \
+    --header 'User-Agent:Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0'
+    --header 'foo:bar'`,
+    response: makeRESTRequest({
+      method: "GET",
+      name: "Untitled",
+      endpoint: "https://echo.hoppscotch.io/",
+      auth: {
+        authType: "basic",
+        authActive: true,
+        username: "asdfgh",
+        password: "1234",
+      },
+      body: {
+        contentType: null,
+        body: null,
+      },
+      params: [],
+      headers: [
+        {
+          active: true,
+          key: "Authorization",
+          value: "Basic YXNkZmdoOjEyMzQ=",
+          description: "",
+        },
+        {
+          active: true,
+          key: "User-Agent",
+          value:
+            "Mozilla/5.0 (X11; Linux x86_64; rv:78.0) Gecko/20100101 Firefox/78.0",
+          description: "",
+        },
+        {
+          active: true,
+          key: "foo",
+          value: "bar",
+          description: "",
+        },
+      ],
+      preRequestScript: "",
+      testScript: "",
+      requestVariables: [],
+      responses: {},
+      description: null,
     }),
   },
 ]
 
 describe("Parse curl command to Hopp REST Request", () => {
+  test("parses json body with semicolon-only headers", () => {
+    const command = String.raw`curl 'https://echo.hoppscotch.io/api/process/insert' \
+  -H 'Authorization-OAuth2;' \
+  -H 'Authorization-OAuth2-Client;' \
+  -H 'Authorization-OAuth2-Refresh;' \
+  -H 'Content-Type: application/json;charset=UTF-8' \
+  --data-raw '{"insertProcessDto":{"name":"测hi退回"},"formSaveDTO":{"formProps":"{\"list\":[]}"}}' \
+  --insecure`
+
+    const actual = parseCurlToHoppRESTReq(command)
+
+    expect(actual.method).toBe("POST")
+    expect(actual.endpoint).toBe(
+      "https://echo.hoppscotch.io/api/process/insert"
+    )
+    expect(actual.body.contentType).toBe("application/json")
+
+    const parsedBody = JSON.parse(actual.body.body)
+    expect(parsedBody.insertProcessDto.name).toBe("测hi退回")
+    expect(JSON.parse(parsedBody.formSaveDTO.formProps)).toEqual({ list: [] })
+  })
+
+  test("parses json body containing escaped XML", () => {
+    const command = String.raw`curl 'https://echo.hoppscotch.io/api/process/insert' \
+  -H 'Authorization-OAuth2;' \
+  -H 'Authorization-OAuth2-Client;' \
+  -H 'Authorization-OAuth2-Refresh;' \
+  -H 'Content-Type: application/json;charset=UTF-8' \
+  --data-raw '{"insertProcessDto":{"bpmnXmlString":"<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<bpmn2:definitions xmlns:bpmn2=\"http://www.omg.org/spec/BPMN/20100524/MODEL\"></bpmn2:definitions>"},"formSaveDTO":{"formProps":"{\"list\":[]}"}}' \
+  --insecure`
+
+    const actual = parseCurlToHoppRESTReq(command)
+
+    expect(actual.method).toBe("POST")
+    expect(actual.endpoint).toBe(
+      "https://echo.hoppscotch.io/api/process/insert"
+    )
+    expect(actual.body.contentType).toBe("application/json")
+
+    const parsedBody = JSON.parse(actual.body.body)
+    expect(parsedBody.insertProcessDto.bpmnXmlString).toContain("<?xml")
+    expect(parsedBody.insertProcessDto.bpmnXmlString).toContain(
+      "bpmn2:definitions"
+    )
+    expect(JSON.parse(parsedBody.formSaveDTO.formProps)).toEqual({ list: [] })
+  })
+
+  test("does not drop JSON body for -d with many headers", () => {
+    const command = `curl 'https://echo.hoppscotch.io/api/chat/completions' -d '{"response_format":{"type":"json_object"},"messages":[{"content":"Translate array of texts from en into zh and return JSON result with the same array length, do not add any additional text, and do not return code blocks, such as: {\\"translations\\": [\\"translation of input text 1\\", ...]}","role":"system"},{"content":"[\\"Epic Games CEO Tim Sweeney argues banning Twitter over its ability to AI-generate pornographic images of minors is just '''gatekeepers''' attempting to '''censor all of their political opponents'''\\"]","role":"user"}],"model":"gpt-translate","temperature":0.30000001192092896}' -H ':authority: echo.hoppscotch.io' -H 'accept: */*' -H 'content-type: application/json' -H 'accept-language: en-US;q=1.0, zh-Hans-US;q=0.9' -H 'authorization: Bearer <redacted>' -H 'accept-encoding: br;q=1.0, gzip;q=0.9, deflate;q=0.8' -H 'user-agent: TranslationExtension/1.14.5 (org.lesslab.relingo.TranslationExtension; build:104; iOS 26.2.0) Alamofire/5.10.2' -H 'priority: u=3, i' --compressed`
+
+    const actual = parseCurlToHoppRESTReq(command)
+
+    expect(actual.method).toBe("POST")
+    expect(actual.endpoint).toBe(
+      "https://echo.hoppscotch.io/api/chat/completions"
+    )
+    expect(actual.body.contentType).toBe("application/json")
+
+    const parsedBody = JSON.parse(actual.body.body)
+    expect(parsedBody.model).toBe("gpt-translate")
+    expect(parsedBody.temperature).toBe(0.30000001192092896)
+    expect(parsedBody.response_format).toEqual({ type: "json_object" })
+    expect(parsedBody.messages).toHaveLength(2)
+    expect(parsedBody.messages[0].role).toBe("system")
+    expect(parsedBody.messages[0].content).toBe(
+      `Translate array of texts from en into zh and return JSON result with the same array length, do not add any additional text, and do not return code blocks, such as: {"translations": ["translation of input text 1", ...]}`
+    )
+    expect(parsedBody.messages[1].role).toBe("user")
+    expect(parsedBody.messages[1].content).toBe(
+      `["Epic Games CEO Tim Sweeney argues banning Twitter over its ability to AI-generate pornographic images of minors is just '''gatekeepers''' attempting to '''censor all of their political opponents'''"]`
+    )
+  })
+
+  test("preserves -d POST without -G as form-urlencoded", () => {
+    const command = `curl -X POST 'https://example.com/submit' -d 'name=alice&role=admin'`
+
+    const actual = parseCurlToHoppRESTReq(command)
+
+    expect(actual.method).toBe("POST")
+    expect(actual.endpoint).toBe("https://example.com/submit")
+    expect(actual.body.contentType).toBe("application/x-www-form-urlencoded")
+    expect(actual.body.body).toBe("name: alice\nrole: admin")
+  })
+
+  test("does not intercept -d inside a quoted header value", () => {
+    const command = `curl 'https://example.com/api' -H 'X-Custom: -d {"fake":1}' -d '{"real":true}'`
+
+    const actual = parseCurlToHoppRESTReq(command)
+
+    expect(actual.method).toBe("POST")
+    expect(actual.endpoint).toBe("https://example.com/api")
+    expect(actual.body.contentType).toBe("application/json")
+    expect(JSON.parse(actual.body.body)).toEqual({ real: true })
+
+    const customHeader = actual.headers.find((h) => h.key === "X-Custom")
+    expect(customHeader).toBeDefined()
+    expect(customHeader.value).toBe(`-d {"fake":1}`)
+  })
+
   for (const [i, { command, response }] of samples.entries()) {
     test(`for sample #${i + 1}:\n\n${command}`, () => {
-      expect(parseCurlToHoppRESTReq(command)).toEqual(response)
+      const actual = parseCurlToHoppRESTReq(command)
+
+      /**
+       * An object possibly carrying an internal reference id.
+       * @typedef {object} RefIdCarrier
+       * @property {unknown} [_ref_id]
+       */
+
+      /**
+       * @template {object} T
+       * @param {T & RefIdCarrier} obj
+       * @returns {Omit<T, "_ref_id">}
+       */
+      const stripRefId = (obj) => {
+        const clone = { ...obj }
+        delete clone._ref_id
+        return clone
+      }
+
+      // Strip off _ref_id added by makeRESTRequest for equality check because it is generated randomly
+      expect(stripRefId(actual)).toEqual(stripRefId(response))
     })
   }
 })
