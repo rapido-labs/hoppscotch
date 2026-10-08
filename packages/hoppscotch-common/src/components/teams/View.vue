@@ -1,12 +1,6 @@
-<template>
+~<template>
   <div>
     <div class="space-y-4">
-      <HoppButtonSecondary
-        :label="`${t('team.create_new')}`"
-        outline
-        :icon="IconPlus"
-        @click="displayModalAdd(true)"
-      />
       <div v-if="loading" class="flex flex-col items-center justify-center">
         <HoppSmartSpinner class="mb-4" />
         <span class="text-secondaryLight">{{ t("state.loading") }}</span>
